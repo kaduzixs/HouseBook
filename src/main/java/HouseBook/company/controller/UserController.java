@@ -1,8 +1,8 @@
 
-package controller;
+package HouseBook.company.controller;
 
-import model.User;
-import service.UserService;
+import HouseBook.company.model.User;
+import HouseBook.company.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -41,12 +41,14 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestParam(required = false) String email, @RequestParam(required = false) String password) {
+    public ResponseEntity<String> register(@RequestParam String name, @RequestParam String email, @RequestParam String password) {
+
         try {
             boolean registered = userService.register(email, password);
 
             if (registered) {
-                return ResponseEntity.status(HttpStatus.CREATED).body("Usuário cadastrado com sucesso!");
+                return ResponseEntity.status(HttpStatus.CREATED)
+                        .body("Usuário cadastrado com sucesso!");
             }
 
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Este e-mail já está cadastrado.");

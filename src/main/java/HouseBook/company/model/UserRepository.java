@@ -1,4 +1,4 @@
-package model;
+package HouseBook.company.model;
 
 import java.util.Optional;
 

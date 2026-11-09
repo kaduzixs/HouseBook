@@ -1,4 +1,4 @@
-package model;
+package HouseBook.company.model;
 
 
 import jakarta.persistence.*;
@@ -16,7 +16,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column()
     private String name;
 
     @Column(nullable = false, unique = true)
@@ -25,7 +25,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String password;
 
-    public User(String emailNormalizado, @Nullable String encode) {
+    public User(String email, String password) {
+        this.email = email;
+        this.password = password;
     }
 
 }

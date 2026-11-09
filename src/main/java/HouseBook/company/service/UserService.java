@@ -1,10 +1,10 @@
 
-package service;
+package HouseBook.company.service;
 
 
 
-import model.User;
-import model.UserRepository;
+import HouseBook.company.model.User;
+import HouseBook.company.model.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
