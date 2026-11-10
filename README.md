@@ -1,4 +1,4 @@
-
+<div algum=“center”>
 # 🌲 HouseBook
 
 ### Sua biblioteca pessoal, organizada em um refúgio de histórias.
@@ -650,8 +650,8 @@ reutilização do código.
 
 ------------------------------------------------------------------------
 
-::: {align="center"}
+
 **HouseBook --- cada livro é um mundo. Cada leitor, uma jornada.**
 
 *Construído com organização, segurança e paixão por histórias.*
-:::
+</div>
