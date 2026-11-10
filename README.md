@@ -11,6 +11,12 @@ literária.**
 [API](#-endpoints-disponíveis) · [Segurança](#-segurança)
 :::
 
+<div align="center">
+    Para verificar como está o andamento do projeto entre neste link:
+    
+</div>
+https://housebook-0xes.onrender.com
+
 ------------------------------------------------------------------------
 
 ## 📖 Visão geral
