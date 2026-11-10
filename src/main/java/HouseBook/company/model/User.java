@@ -22,7 +22,7 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "foto_url", nullable = true)
+    @Column(name = "foto_url", nullable = true, length = 500)
     private String fotoUrl;
 
     protected User() {

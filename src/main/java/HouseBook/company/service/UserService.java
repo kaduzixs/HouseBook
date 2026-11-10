@@ -11,12 +11,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
 public class UserService {
+    private static final String HOST_PERMITIDO = "SEU-PROJECT-REF.supabase.co";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,51 +43,38 @@ public class UserService {
 
 
     @Transactional
-    public boolean register(String name, String email, String password, String fotoUrl) throws IOException {
+    public boolean register(String name, String email, String password, String fotoUrl) {
 
         String nomeNormalizado = name == null ? "" : name.trim();
         String emailNormalizado = normalizarEmail(email);
 
-        // Validação do nome
         if (nomeNormalizado.isBlank() || nomeNormalizado.length() > 100) {
-            throw new IllegalArgumentException(
-                    "Informe um nome válido com até 100 caracteres."
-            );
+            throw new IllegalArgumentException("Informe um nome válido com até 100 caracteres.");
         }
 
-        // Validação do e-mail
-        if (emailNormalizado.length() > 254 ||
-                !EMAIL_PATTERN.matcher(emailNormalizado).matches()) {
-
+        if (emailNormalizado.length() > 254 || !EMAIL_PATTERN.matcher(emailNormalizado).matches()) {
             throw new IllegalArgumentException("Informe um e-mail válido.");
         }
 
-        // Validação da senha
         if (password == null || password.length() < 8 || password.length() > 72) {
-            throw new IllegalArgumentException(
-                    "A senha deve ter entre 8 e 72 caracteres."
-            );
+            throw new IllegalArgumentException("A senha deve ter entre 8 e 72 caracteres.");
         }
 
-        // Verifica se o e-mail já está cadastrado
+        String fotoValidada = validarFoto(fotoUrl);
+
         if (userRepository.findByEmail(emailNormalizado).isPresent()) {
             return false;
         }
 
         try {
-            // Cria o usuário com senha criptografada
-            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), fotoUrl);
-
-            if(fotoUrl != null && !fotoUrl.isEmpty()) {
-                usuario.setFotoUrl(fotoUrl);
-            }
+            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), fotoValidada);
 
             userRepository.saveAndFlush(usuario);
-
             return true;
 
-        } catch (DataIntegrityViolationException ex) {
-            // Trata possíveis cadastros simultâneos com o mesmo e-mail
+        }
+        catch (DataIntegrityViolationException ex) {
+            // Cadastro simultâneo com o mesmo e-mail
             return false;
         }
     }
@@ -119,5 +109,26 @@ public class UserService {
         }
 
         return Optional.empty();
+    }
+
+
+    private String validarFoto(String url) {
+        if (url == null || url.isBlank()) return null;
+        String u = url.trim();
+        if (u.length() > 500) {
+            throw new IllegalArgumentException("URL da foto muito longa.");
+        }
+
+        try {
+            URI uri = new URI(u);
+            if (!"https".equals(uri.getScheme()) || uri.getHost() == null || !HOST_PERMITIDO.equals(uri.getHost())) {
+                throw new IllegalArgumentException("URL da foto inválida.");
+            }
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException("URL da foto inválida.");
+        }
+
+        return u;
     }
 }

@@ -11,15 +11,15 @@ import jakarta.servlet.http.HttpSession;
 
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+
+
 import java.util.List;
 import java.util.Optional;
 
@@ -73,26 +73,19 @@ public class UserController {
 
 
 
-    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> register(@RequestParam String name, @RequestParam String email, @RequestParam String password, @RequestParam String fotoUrl) {
-
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestParam String name, @RequestParam String email, @RequestParam String password, @RequestParam(required = false) String fotoUrl) {
         try {
             boolean registered = userService.register(name, email, password, fotoUrl);
-
             if (registered) {
                 return ResponseEntity.status(HttpStatus.CREATED).body("Usuário cadastrado com sucesso!");
             }
-
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Este e-mail já está cadastrado.");
-
         }
         catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
+        }
 
-        }
-        catch (IOException ex) {
-            return ResponseEntity.internalServerError().body("Erro ao processar a foto do usuário.");
-        }
     }
 
 

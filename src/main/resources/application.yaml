@@ -3,7 +3,7 @@ spring:
     name: company
 
   datasource:
-    url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/housebook
+    url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/housebook?prepareThreshold=0
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
