@@ -4,10 +4,13 @@ package HouseBook.company.service;
 import HouseBook.company.model.User;
 import HouseBook.company.model.UserRepository;
 
+import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -35,25 +38,32 @@ public class UserService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    // Valida os dados e cadastra o usuário
-    public boolean register(String name, String email, String password) {
+
+    @Transactional
+    public boolean register(String name, String email, String password, MultipartFile foto) throws IOException {
 
         String nomeNormalizado = name == null ? "" : name.trim();
         String emailNormalizado = normalizarEmail(email);
 
         // Validação do nome
-        if (nomeNormalizado.isBlank() || nomeNormalizado.length() > 100) {throw new IllegalArgumentException("Informe um nome válido com até 100 caracteres.");
+        if (nomeNormalizado.isBlank() || nomeNormalizado.length() > 100) {
+            throw new IllegalArgumentException(
+                    "Informe um nome válido com até 100 caracteres."
+            );
         }
 
         // Validação do e-mail
-        if (emailNormalizado.length() > 254 || !EMAIL_PATTERN.matcher(emailNormalizado).matches()) {
+        if (emailNormalizado.length() > 254 ||
+                !EMAIL_PATTERN.matcher(emailNormalizado).matches()) {
+
             throw new IllegalArgumentException("Informe um e-mail válido.");
         }
 
         // Validação da senha
         if (password == null || password.length() < 8 || password.length() > 72) {
-
-            throw new IllegalArgumentException("A senha deve ter entre 8 e 72 caracteres.");
+            throw new IllegalArgumentException(
+                    "A senha deve ter entre 8 e 72 caracteres."
+            );
         }
 
         // Verifica se o e-mail já está cadastrado
@@ -63,7 +73,31 @@ public class UserService {
 
         try {
             // Cria o usuário com senha criptografada
-            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password));
+            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), null);
+
+            // Foto opcional
+            if (foto != null && !foto.isEmpty()) {
+
+                // Limite de 2 MB
+                if (foto.getSize() > 2 * 1024 * 1024) {
+                    throw new IllegalArgumentException(
+                            "A foto deve ter no máximo 2 MB."
+                    );
+                }
+
+                // Validação básica do tipo de arquivo
+                String contentType = foto.getContentType();
+
+                if (contentType == null ||
+                        !contentType.matches("image/(jpeg|png|webp)")) {
+
+                    throw new IllegalArgumentException(
+                            "Formato inválido. Envie JPG, PNG ou WEBP."
+                    );
+                }
+
+                usuario.setFotoUrl(foto.getBytes());
+            }
 
             userRepository.saveAndFlush(usuario);
 
@@ -74,6 +108,7 @@ public class UserService {
             return false;
         }
     }
+
 
     // Realiza o login
     public Optional<User> login(String email, String password) {
