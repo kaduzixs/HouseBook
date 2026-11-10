@@ -16,19 +16,19 @@ public class User {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "foto_url", columnDefinition = "BYTEA")
-    private byte[] fotoUrl;
+    @Column(name = "foto_url", nullable = true)
+    private String fotoUrl;
 
     protected User() {
     }
 
-    public User(String name, String email, String password, byte[] fotoUrl) {
+    public User(String name, String email, String password, String fotoUrl) {
         this.name = name;
         this.email = email;
         this.password = password;

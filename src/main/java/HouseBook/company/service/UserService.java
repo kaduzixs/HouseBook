@@ -40,7 +40,7 @@ public class UserService {
 
 
     @Transactional
-    public boolean register(String name, String email, String password, MultipartFile foto) throws IOException {
+    public boolean register(String name, String email, String password, String fotoUrl) throws IOException {
 
         String nomeNormalizado = name == null ? "" : name.trim();
         String emailNormalizado = normalizarEmail(email);
@@ -73,30 +73,10 @@ public class UserService {
 
         try {
             // Cria o usuário com senha criptografada
-            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), null);
+            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), fotoUrl);
 
-            // Foto opcional
-            if (foto != null && !foto.isEmpty()) {
-
-                // Limite de 2 MB
-                if (foto.getSize() > 2 * 1024 * 1024) {
-                    throw new IllegalArgumentException(
-                            "A foto deve ter no máximo 2 MB."
-                    );
-                }
-
-                // Validação básica do tipo de arquivo
-                String contentType = foto.getContentType();
-
-                if (contentType == null ||
-                        !contentType.matches("image/(jpeg|png|webp)")) {
-
-                    throw new IllegalArgumentException(
-                            "Formato inválido. Envie JPG, PNG ou WEBP."
-                    );
-                }
-
-                usuario.setFotoUrl(foto.getBytes());
+            if(fotoUrl != null && !fotoUrl.isEmpty()) {
+                usuario.setFotoUrl(fotoUrl);
             }
 
             userRepository.saveAndFlush(usuario);
