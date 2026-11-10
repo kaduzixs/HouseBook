@@ -1,4 +1,4 @@
-::: {align="center"}
+
 # 🌲 HouseBook
 
 ### Sua biblioteca pessoal, organizada em um refúgio de histórias.
