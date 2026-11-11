@@ -19,10 +19,8 @@ import java.util.regex.Pattern;
 @Service
 public class UserService {
     private static final long MAX_PHOTO_SIZE = 2L * 1024 * 1024;
-    private static final Set<String> ALLOWED_PHOTO_TYPES =
-            Set.of("image/jpeg", "image/png", "image/webp");
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Set<String> ALLOWED_PHOTO_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -91,8 +89,33 @@ public class UserService {
         return userRepository.findByEmail(normalizarEmail(email)).filter(usuario -> usuario.getPassword() != null && !usuario.getPassword().isBlank() && passwordEncoder.matches(password, usuario.getPassword()));
     }
 
+    @Transactional
+    public User atualizarPerfil(Long id, String name, MultipartFile foto) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+        if (name == null || name.isBlank() || name.trim().length() > 100) {
+            throw new IllegalArgumentException("Informe um nome válido com até 100 caracteres.");
+        }
+        user.setName(name.trim());
+        if (foto != null && !foto.isEmpty()) {
+            if (foto.getSize() > MAX_PHOTO_SIZE) {
+                throw new IllegalArgumentException("A foto deve ter no máximo 2 MB.");
+            }
+            String type = foto.getContentType();
+            if (type == null || !ALLOWED_PHOTO_TYPES.contains(type.toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("A foto deve ser JPG, PNG ou WEBP.");
+            }
+            try {
+                user.setFoto(foto.getBytes());
+                user.setFotoContentType(type);
+            } catch (IOException ex) {
+                throw new IllegalArgumentException("Não foi possível ler a foto enviada.");
+            }
+        }
+        return userRepository.save(user);
+    }
+
     public Optional<User> buscarPorId(Long id) {
         return userRepository.findById(id);
     }
 }
-

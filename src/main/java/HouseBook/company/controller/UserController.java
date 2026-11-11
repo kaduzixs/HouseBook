@@ -69,6 +69,20 @@ public class UserController {
         return userService.buscarPorId(userId).filter(user -> user.getFoto() != null && user.getFotoContentType() != null).map(user -> ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store").contentType(MediaType.parseMediaType(user.getFotoContentType())).body(user.getFoto())).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<?> meusDados(Authentication authentication) {
+
+        if (authentication == null ||
+                !(authentication.getPrincipal() instanceof Long userId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return userService.buscarPorId(userId).map(user -> ResponseEntity.ok(new UsuarioResponse(user.getId(), user.getName(), user.getEmail(), user.getFoto() != null))).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    public record UsuarioResponse(Long id, String name, String email, boolean hasPhoto) {}
+
+
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpSession session) {
         session.invalidate();

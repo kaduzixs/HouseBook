@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="forest" data-font="normal">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101d16"><meta name="description" content="HouseBook — seu refúgio literário.">
+    <title>HouseBook | Minha Biblioteca</title>
+    <link rel="stylesheet" href="/books.css"><script src="/books.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+<div class="forest-scene" aria-hidden="true">
+    <div class="moon"></div><div class="mist mist-one"></div><div class="mist mist-two"></div>
+    <div class="tree tree-left"></div><div class="tree tree-right"></div>
+    <div class="firefly firefly-one"></div><div class="firefly firefly-two"></div><div class="firefly firefly-three"></div>
+    <div class="floating-book floating-book-one">✦</div><div class="floating-book floating-book-two">▤</div>
+    <div class="floating-book floating-book-three">✧</div><div class="floating-book floating-book-four">▣</div>
+</div>
+<header class="topbar">
+    <a class="brand" href="/books.html" aria-label="HouseBook início"><span class="brand-mark">▣</span><span>House<span>Book</span></span></a>
+    <nav class="main-nav" aria-label="Navegação principal">
+        <button class="nav-link active" data-view="library" type="button">Minha biblioteca</button>
+        <button class="nav-link" data-view="discover" type="button">Descobrir livros</button>
+        <button class="nav-link" data-view="history" type="button">Histórico</button>
+    </nav>
+    <div class="topbar-tools">
+        <form id="global-search-form" class="global-search" role="search">
+            <span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Buscar livros, autores..." aria-label="Buscar livros e autores">
+            <button type="submit" aria-label="Pesquisar">↵</button>
+        </form>
+        <button id="access-toggle" class="tool-button" type="button" aria-expanded="false" aria-controls="access-panel" title="Acessibilidade">◐</button>
+        <div class="profile-menu-wrap">
+            <button id="profile-menu-toggle" class="profile-trigger" type="button" aria-expanded="false" aria-controls="profile-menu">
+                <span class="avatar"><img id="profile-photo" alt="" hidden><span id="profile-initial">H</span></span>
+                <span class="profile-trigger-copy"><strong id="profile-name">Aventureiro</strong><small>Minha conta</small></span><span class="chevron">⌄</span>
+            </button>
+            <div class="profile-menu" id="profile-menu" hidden>
+                <div class="menu-user"><strong id="menu-profile-name">Aventureiro</strong><small id="profile-email">Sua biblioteca</small></div>
+                <button type="button" id="edit-profile-button">✎ Editar perfil</button>
+                <button type="button" id="menu-access-button">◐ Acessibilidade</button>
+                <button type="button" id="logout-button" class="logout-option">↗ Sair da conta</button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<aside class="access-panel" id="access-panel" hidden aria-label="Opções de acessibilidade">
+    <div class="panel-heading"><div><span class="eyebrow">PREFERÊNCIAS</span><h2>Ajuste sua experiência</h2></div><button id="close-access" class="icon-button" type="button" aria-label="Fechar">×</button></div>
+    <div class="access-group"><span class="control-label">Tamanho do texto</span><div class="segmented"><button type="button" data-font-choice="normal" aria-pressed="true">Padrão</button><button type="button" data-font-choice="large" aria-pressed="false">Maior A+</button></div></div>
+    <div class="access-group"><span class="control-label">Contraste</span><button id="contrast-toggle" class="contrast-button" type="button" aria-pressed="false">Ativar alto contraste</button></div>
+    <div class="access-group"><span class="control-label">Tema</span><div class="theme-options"><button class="theme-swatch swatch-forest" data-theme-choice="forest" type="button" aria-label="Verde floresta" aria-pressed="true"></button><button class="theme-swatch swatch-ember" data-theme-choice="ember" type="button" aria-label="Âmbar" aria-pressed="false"></button><button class="theme-swatch swatch-violet" data-theme-choice="violet" type="button" aria-label="Ametista" aria-pressed="false"></button><button class="theme-swatch swatch-ocean" data-theme-choice="ocean" type="button" aria-label="Azul noturno" aria-pressed="false"></button></div></div>
+</aside>
+
+<main id="main-content" class="container">
+    <section class="hero-section">
+        <div class="hero-copy"><p class="eyebrow">SEU REFÚGIO LITERÁRIO</p><h1>Uma biblioteca de <em>possibilidades.</em></h1><p>Cada livro guarda um universo. Organize suas leituras, descubra novas histórias e continue de onde parou.</p><div class="hero-note"><span>❧</span> “Toda história merece um lugar para florescer.”</div></div>
+        <div class="hero-art" aria-hidden="true"><div class="orb"></div><div class="hero-book hero-book-back"></div><div class="hero-book hero-book-front"><span>HB</span></div><span class="hero-star star-a">✦</span><span class="hero-star star-b">✧</span><span class="hero-star star-c">·</span></div>
+    </section>
+
+    <section class="stats-grid" aria-label="Resumo da biblioteca">
+        <article class="stat-card"><span class="stat-icon">▤</span><div><span class="stat-label">Na biblioteca</span><strong id="total-books">—</strong><small>obras guardadas</small></div></article>
+        <article class="stat-card"><span class="stat-icon">◷</span><div><span class="stat-label">Em andamento</span><strong id="reading-books">—</strong><small>jornadas abertas</small></div></article>
+        <article class="stat-card"><span class="stat-icon">✧</span><div><span class="stat-label">Concluídos</span><strong id="finished-books">—</strong><small>histórias vividas</small></div></article>
+    </section>
+
+    <section class="content-section" id="library-view">
+        <div class="section-heading"><div><p class="eyebrow">SEU ACERVO</p><h2>Minha biblioteca</h2><p class="section-description">Seus livros reunidos em um só lugar.</p></div><button class="primary-button" id="discover-button" type="button"><span>＋</span> Encontrar livros</button></div>
+        <div class="toolbar"><div class="filter-tabs" role="group" aria-label="Filtrar livros"><button class="filter-button active" data-filter="all" type="button">Todos</button><button class="filter-button" data-filter="NAO_INICIADO" type="button">Não iniciados</button><button class="filter-button" data-filter="EM_ANDAMENTO" type="button">Em andamento</button><button class="filter-button" data-filter="LIDO" type="button">Concluídos</button></div><label class="small-search"><span>⌕</span><input id="library-search" type="search" placeholder="Filtrar minha estante..." aria-label="Filtrar minha estante"></label></div>
+        <div id="library-grid" class="book-grid"></div>
+        <div id="library-empty" class="empty-state" hidden><span>✧</span><h3>Sua estante está esperando histórias.</h3><p>Pesquise um livro e adicione a primeira obra à sua biblioteca.</p><button class="primary-button" data-open-discover type="button">Descobrir livros</button></div>
+    </section>
+
+    <section class="content-section" id="discover-view" hidden>
+        <div class="section-heading"><div><p class="eyebrow">EXPLORE NOVOS UNIVERSOS</p><h2>Descobrir livros</h2><p class="section-description">Encontre sua próxima leitura.</p></div></div>
+        <form id="book-search-form" class="search-form"><span aria-hidden="true">⌕</span><input id="book-search" type="search" placeholder="Pesquise por título, autor ou assunto..." aria-label="Pesquisar livros" required><button type="submit">Pesquisar <span>→</span></button></form>
+        <div class="section-heading discover-heading"><div><p class="eyebrow" id="discover-eyebrow">SELEÇÃO HOUSEBOOK</p><h2 id="discover-title">Novas descobertas</h2></div></div>
+        <div id="discover-grid" class="book-grid"></div><div id="discover-empty" class="empty-state" hidden><span>⌕</span><h3>Nenhum livro encontrado.</h3><p>Tente pesquisar por outro título ou autor.</p></div>
+    </section>
+
+    <section class="content-section" id="history-view" hidden><div class="section-heading"><div><p class="eyebrow">SUAS JORNADAS</p><h2>Histórico de leitura</h2><p class="section-description">Livros que você marcou como concluídos.</p></div></div><div id="history-grid" class="book-grid"></div><div id="history-empty" class="empty-state" hidden><span>◷</span><h3>Seu histórico está vazio.</h3><p>Quando terminar um livro, marque-o como lido na sua biblioteca.</p></div></section>
+    <p id="page-feedback" class="page-feedback" role="status" aria-live="polite"></p>
+</main>
+<footer class="footer"><span>HOUSEBOOK</span><i>✦</i><span>CADA LIVRO, UMA NOVA JORNADA</span></footer>
+
+<dialog id="profile-dialog" class="site-dialog"><form id="profile-form" enctype="multipart/form-data"><button class="dialog-close" type="button" data-close-dialog="profile-dialog" aria-label="Fechar">×</button><p class="eyebrow">SUA IDENTIDADE</p><h2>Editar perfil</h2><p class="dialog-intro">Atualize seu nome e seu retrato na biblioteca.</p><label class="profile-photo-editor" for="profile-photo-input"><span class="avatar avatar-large"><img id="profile-preview" alt="Prévia da foto" hidden><span id="profile-preview-initial">H</span></span><span>Alterar foto <small>JPG, PNG ou WEBP · até 2 MB</small></span></label><input id="profile-photo-input" class="visually-hidden" type="file" name="foto" accept="image/jpeg,image/png,image/webp"><label for="edit-name">Nome de exibição</label><input id="edit-name" name="name" maxlength="100" required><p id="profile-feedback" class="form-feedback" role="status"></p><button class="primary-button full-button" type="submit">Salvar alterações</button></form></dialog>
+<dialog id="book-dialog" class="site-dialog book-dialog"><button class="dialog-close" id="dialog-close" type="button" aria-label="Fechar">×</button><div id="dialog-content"></div></dialog>
+</body></html>

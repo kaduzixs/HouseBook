@@ -9,4 +9,6 @@ public interface UserBookRepository extends JpaRepository<UserBook, Long> {
     boolean existsByUserAndBook(User user, Book book);
 
     Optional<UserBook> findByIdAndUser(Long id, User user);
+
+    java.util.List<UserBook> findAllByUserOrderByAcquiredAtDesc(User user);
 }
