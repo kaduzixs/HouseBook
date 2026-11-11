@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.springframework.dao.DataIntegrityViolationException;
 
-@SpringBootTest
+@SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:housebooktest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa", "spring.datasource.password=", "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
@@ -39,113 +39,78 @@ class UserIntegrationTest {
 
     // TESTE 1: Nome vazio deve ser rejeitado
     @Test
-    void naoDeveCadastrarUsuarioComNomeVazio() throws Exception {
+    void notRegisterUserNull() throws Exception {
 
-        long quantidadeAntes = userRepository.count();
+        long qtdBefore = userRepository.count();
 
-        mockMvc.perform(multipart("/user/register")
-                        .param("name", "   ")
-                        .param("email", "teste1@email.com")
-                        .param("password", "SenhaForte123")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(multipart("/user/register").param("name", "   ").param("email", "teste1@email.com").param("password", "SenhaForte123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isBadRequest());
 
-        assertEquals(quantidadeAntes, userRepository.count());
+        assertEquals(qtdBefore, userRepository.count());
     }
 
     // TESTE 2: E-mail inválido deve ser rejeitado
     @Test
-    void notRegister() throws Exception {
+    void notRegisterInvalidEmail() throws Exception {
 
-        long quantidadeAntes = userRepository.count();
+        long qtdBefore = userRepository.count();
 
         mockMvc.perform(multipart("/user/register").param("name", "João").param("email", "email-invalido").param("password", "SenhaForte123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isBadRequest());
-        assertEquals(quantidadeAntes, userRepository.count());
+        assertEquals(qtdBefore, userRepository.count());
     }
 
     // TESTE 3: Senha curta deve ser rejeitada
     @Test
-    void naoDeveCadastrarUsuarioComSenhaCurta() throws Exception {
+    void notPasswordLittle() throws Exception {
 
-        long quantidadeAntes = userRepository.count();
+        long qtdBefore = userRepository.count();
 
-        mockMvc.perform(multipart("/user/register")
-                        .param("name", "João")
-                        .param("email", "teste3@email.com")
-                        .param("password", "123")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(multipart("/user/register").param("name", "João").param("email", "teste3@email.com").param("password", "123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isBadRequest());
 
-        assertEquals(quantidadeAntes, userRepository.count());
+        assertEquals(qtdBefore, userRepository.count());
     }
 
     // TESTE 4: Não deve permitir e-mail duplicado
     @Test
-    void naoDevePermitirEmailDuplicado() throws Exception {
+    void notDuplicateEmail() throws Exception {
 
-        mockMvc.perform(multipart("/user/register")
-                        .param("name", "João")
-                        .param("email", "duplicado@email.com")
-                        .param("password", "SenhaForte123")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isCreated());
+        mockMvc.perform(multipart("/user/register").param("name", "João").param("email", "duplicado@email.com").param("password", "SenhaForte123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isCreated());
 
-        mockMvc.perform(multipart("/user/register")
-                        .param("name", "Outro usuário")
-                        .param("email", "duplicado@email.com")
-                        .param("password", "OutraSenha123")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isConflict());
+        mockMvc.perform(multipart("/user/register").param("name", "Outro usuário").param("email", "duplicado@email.com").param("password", "OutraSenha123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isConflict());
 
-        assertEquals(
-                1,
-                userRepository.count()
-        );
+        assertEquals(1, userRepository.count());
     }
 
     // TESTE 5: Banco não deve aceitar nome nulo
     @Test
-    void bancoNaoDevePermitirNomeNulo() {
+    void bankNameNull() {
+        User user = new User(null, "nulo@email.com", "senhaCriptografada", null, null);
 
-        User usuario = new User(
-                null,
-                "nulo@email.com",
-                "senhaCriptografada",
-                null,
-                null
-        );
-
-        assertThrows(
-                DataIntegrityViolationException.class,
-                () -> userRepository.saveAndFlush(usuario)
-        );
+        assertThrows(DataIntegrityViolationException.class, () -> userRepository.saveAndFlush(user));
     }
 
     // TESTE 6: Cadastro válido deve funcionar
     @Test
-    void deveCadastrarUsuarioComDadosValidos() throws Exception {
+    void registerValid() throws Exception {
 
-        mockMvc.perform(multipart("/user/register")
-                        .param("name", "João Guilherme")
-                        .param("email", "valido@email.com")
-                        .param("password", "SenhaForte123")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
-                .andExpect(status().isCreated());
+        mockMvc.perform(multipart("/user/register").param("name", "João Guilherme").param("email", "valido@email.com").param("password", "SenhaForte123").with(SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isCreated());
 
-        User usuario = userRepository
-                .findByEmail("valido@email.com")
-                .orElseThrow();
+        User usuario = userRepository.findByEmail("valido@email.com").orElseThrow();
 
         assertEquals("João Guilherme", usuario.getName());
         assertEquals("valido@email.com", usuario.getEmail());
 
         assertNotEquals("SenhaForte123", usuario.getPassword());
 
-        assertTrue(
-                passwordEncoder.matches(
-                        "SenhaForte123",
-                        usuario.getPassword()
-                )
-        );
+        assertTrue(passwordEncoder.matches("SenhaForte123", usuario.getPassword()));
+    }
+
+    // TESTE 7 - BRECHA NA SEGURANÇA: O banco não deve aceitar nome vazio
+    @Test
+    void verifyBankNull() {
+
+        User usuario = new User("", "bypass@email.com", "senhaCriptografada", null, null);
+        User salvo = userRepository.saveAndFlush(usuario);
+        assertNotNull(salvo.getId());
+        System.out.println("ALERTA: O banco aceitou um usuário com nome vazio!");
     }
 }
