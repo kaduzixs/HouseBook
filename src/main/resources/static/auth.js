@@ -1,3 +1,4 @@
+
 'use strict';
 
 (() => {
@@ -110,6 +111,33 @@
         avatarPlaceholder.hidden = false;
     }
 
+    async function carregarFotoPerfil() {
+        const profilePhoto = document.getElementById('logged-profile-photo');
+        try {
+            const response = await fetch('/user/foto', {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            if (!response.ok) {
+                profilePhoto.hidden = true;
+                profilePhoto.removeAttribute('src');
+                return;
+            }
+            const imageBlob = await response.blob();
+            const imageUrl = URL.createObjectURL(imageBlob);
+            if (profilePhoto.dataset.objectUrl) {
+                URL.revokeObjectURL(profilePhoto.dataset.objectUrl);
+            }
+            profilePhoto.dataset.objectUrl = imageUrl;
+            profilePhoto.src = imageUrl;
+            profilePhoto.hidden = false;
+        } catch {
+            profilePhoto.hidden = true;
+        }
+    }
+
+    carregarFotoPerfil();
+
     loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         clearFeedback();
@@ -129,6 +157,7 @@
             if (result.ok) {
                 setFeedback('login-feedback', 'Acesso confirmado. Sua biblioteca está pronta!', 'success');
                 loginForm.reset();
+                await carregarFotoPerfil();
             } else {
                 setFeedback('login-feedback', result.message || 'Não foi possível entrar. Confira seus dados.', 'error');
             }

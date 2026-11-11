@@ -22,16 +22,20 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "foto_url", nullable = true, length = 500)
-    private String fotoUrl;
+    @Column(name = "foto", columnDefinition = "bytea")
+    private byte[] foto;
+
+    @Column(name = "foto_content_type", length = 50)
+    private String fotoContentType;
 
     protected User() {
     }
 
-    public User(String name, String email, String password, String fotoUrl) {
+    public User(String name, String email, String password, byte[] foto, String fotoContentType) {
         this.name = name;
         this.email = email;
         this.password = password;
-        this.fotoUrl = fotoUrl;
+        this.foto = foto;
+        this.fotoContentType = fotoContentType;
     }
 }

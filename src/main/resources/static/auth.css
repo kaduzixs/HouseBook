@@ -1,3 +1,4 @@
+
 :root {
     color-scheme: dark;
     --forest-950: #101d17;
@@ -81,3 +82,14 @@ html[data-contrast="high"] .input-wrap input,html[data-contrast="high"] form > l
 @media (max-width:850px) { .page-content { grid-template-columns:1fr; max-width:540px; gap:24px; padding-top:40px; }.intro { max-width:540px; text-align:center; }.crest { margin:0 auto 24px; }.intro h1 { margin-left:auto; margin-right:auto; font-size:clamp(2.3rem,8vw,3.5rem); }.intro-copy,.lore-note { margin-left:auto; margin-right:auto; }.forest-signature { justify-content:center; margin-top:24px; }.auth-card { max-width:490px; margin:0 auto; }.tree { width:30vw; } }
 @media (max-width:560px) { .topbar { width:calc(100% - 32px); padding:17px 0; }.realm-label { display:none; }.access-toggle { padding:9px 10px; }.page-content { width:calc(100% - 30px); padding:34px 0 45px; }.intro { padding:10px 0; }.intro h1 { font-size:2.5rem; }.intro-copy { font-size:.9rem; }.lore-note { text-align:left; }.auth-card { padding:23px 19px; }.form-heading h2 { font-size:1.75rem; }.moon { width:70px; height:70px; right:9%; top:13%; }.pixel-book { opacity:.55; }.book-one { left:2%; }.book-two { right:2%; }.page-footer { gap:9px; font-size:.5rem; letter-spacing:.14em; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
+
+/* Foto do usuário autenticado */
+.logged-profile-photo {
+    width: 42px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid var(--gold-light);
+    box-shadow: 0 0 0 3px rgba(217, 193, 141, .15);
+}
+

@@ -382,7 +382,7 @@ Substitua o endereço de exemplo pelo endereço real do repositório.
 ### 2. Configurar o banco
 
 Crie ou selecione um banco PostgreSQL e obtenha as credenciais de
-conexão. A URL JDBC está definida em `application.yaml`; ajuste-a para o
+conexão. A URL JDBC está definida em `application-test.yaml`; ajuste-a para o
 ambiente que será utilizado.
 
 ### 3. Definir as variáveis de ambiente
@@ -527,7 +527,7 @@ deploy por contêiner. Para publicar:
 6.  valide o cadastro, login, logout e acesso a rotas protegidas após a
     publicação.
 
-Não inclua credenciais do banco no `Dockerfile`, no `application.yaml`
+Não inclua credenciais do banco no `Dockerfile`, no `application-test.yaml`
 ou no histórico do Git.
 
 ## 🧭 Próximas etapas de desenvolvimento

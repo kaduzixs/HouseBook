@@ -3,7 +3,6 @@ package HouseBook.company.service;
 
 import HouseBook.company.model.User;
 import HouseBook.company.model.UserRepository;
-
 import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -11,124 +10,88 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
 public class UserService {
-    private static final String HOST_PERMITIDO = "SEU-PROJECT-REF.supabase.co";
+    private static final long MAX_PHOTO_SIZE = 2L * 1024 * 1024;
+    private static final Set<String> ALLOWED_PHOTO_TYPES =
+            Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    // Normaliza o e-mail para evitar cadastros duplicados
     private String normalizarEmail(String email) {
-        if (email == null) {
-            return "";
-        }
-
-        return email.trim().toLowerCase(Locale.ROOT);
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
-
     @Transactional
-    public boolean register(String name, String email, String password, String fotoUrl) {
-
-        String nomeNormalizado = name == null ? "" : name.trim();
+    public boolean register(String name, String email, String password, MultipartFile foto) {
+        String nome = name == null ? "" : name.trim();
         String emailNormalizado = normalizarEmail(email);
 
-        if (nomeNormalizado.isBlank() || nomeNormalizado.length() > 100) {
+        if (nome.isBlank() || nome.length() > 100) {
             throw new IllegalArgumentException("Informe um nome válido com até 100 caracteres.");
         }
-
         if (emailNormalizado.length() > 254 || !EMAIL_PATTERN.matcher(emailNormalizado).matches()) {
             throw new IllegalArgumentException("Informe um e-mail válido.");
         }
-
         if (password == null || password.length() < 8 || password.length() > 72) {
             throw new IllegalArgumentException("A senha deve ter entre 8 e 72 caracteres.");
         }
 
-        String fotoValidada = validarFoto(fotoUrl);
+        byte[] fotoBytes = null;
+        String contentType = null;
+
+        if (foto != null && !foto.isEmpty()) {
+            if (foto.getSize() > MAX_PHOTO_SIZE) {
+                throw new IllegalArgumentException("A foto deve ter no máximo 2 MB.");
+            }
+            contentType = foto.getContentType();
+            if (contentType == null || !ALLOWED_PHOTO_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("A foto deve ser JPG, PNG ou WEBP.");
+            }
+            try {
+                fotoBytes = foto.getBytes();
+            }
+            catch (IOException ex) {
+                throw new IllegalArgumentException("Não foi possível ler a foto enviada.");
+            }
+        }
 
         if (userRepository.findByEmail(emailNormalizado).isPresent()) {
             return false;
         }
 
         try {
-            User usuario = new User(nomeNormalizado, emailNormalizado, passwordEncoder.encode(password), fotoValidada);
-
-            userRepository.saveAndFlush(usuario);
+            User usuario = new User(nome, emailNormalizado, passwordEncoder.encode(password), fotoBytes, contentType);userRepository.saveAndFlush(usuario);
             return true;
-
         }
         catch (DataIntegrityViolationException ex) {
-            // Cadastro simultâneo com o mesmo e-mail
             return false;
         }
     }
 
-
-    // Realiza o login
     public Optional<User> login(String email, String password) {
-
         if (email == null || password == null || email.isBlank() || password.isEmpty()) {
             return Optional.empty();
         }
 
-        String emailNormalizado = normalizarEmail(email);
-
-        Optional<User> encontrado = userRepository.findByEmail(emailNormalizado);
-
-        if (encontrado.isEmpty()) {
-            return Optional.empty();
-        }
-
-        User usuario = encontrado.get();
-
-        String senhaArmazenada = usuario.getPassword();
-
-        if (senhaArmazenada == null || senhaArmazenada.isBlank()) {
-            return Optional.empty();
-        }
-
-        // Compara a senha informada com o hash BCrypt armazenado
-        if (passwordEncoder.matches(password, senhaArmazenada)) {
-            return Optional.of(usuario);
-        }
-
-        return Optional.empty();
+        return userRepository.findByEmail(normalizarEmail(email)).filter(usuario -> usuario.getPassword() != null && !usuario.getPassword().isBlank() && passwordEncoder.matches(password, usuario.getPassword()));
     }
 
-
-    private String validarFoto(String url) {
-        if (url == null || url.isBlank()) return null;
-        String u = url.trim();
-        if (u.length() > 500) {
-            throw new IllegalArgumentException("URL da foto muito longa.");
-        }
-
-        try {
-            URI uri = new URI(u);
-            if (!"https".equals(uri.getScheme()) || uri.getHost() == null || !HOST_PERMITIDO.equals(uri.getHost())) {
-                throw new IllegalArgumentException("URL da foto inválida.");
-            }
-        }
-        catch (URISyntaxException e) {
-            throw new IllegalArgumentException("URL da foto inválida.");
-        }
-
-        return u;
+    public Optional<User> buscarPorId(Long id) {
+        return userRepository.findById(id);
     }
 }
+
