@@ -1,4 +1,4 @@
-package HouseBook.company.model;
+package HouseBook.company.model.User;
 import jakarta.persistence.*;
 import jakarta.persistence.Id;
 import lombok.*;

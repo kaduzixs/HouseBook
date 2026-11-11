@@ -1,8 +1,9 @@
 
 package HouseBook.company.service;
 
-import HouseBook.company.model.User;
-import HouseBook.company.model.UserRepository;
+import HouseBook.company.model.User.User;
+
+import HouseBook.company.model.User.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;

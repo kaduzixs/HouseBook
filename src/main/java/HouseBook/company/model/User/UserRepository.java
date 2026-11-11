@@ -1,8 +1,8 @@
-package HouseBook.company.model;
+package HouseBook.company.model.User;
 
 import java.util.Optional;
 
 public interface UserRepository extends org.springframework.data.jpa.repository.JpaRepository<User, Long> {
 
-    Optional<User> findByEmail(String emailNormalizado);
+    Optional<User> findByEmail(String email);
 }

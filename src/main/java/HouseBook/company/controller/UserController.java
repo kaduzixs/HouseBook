@@ -1,7 +1,7 @@
 
 package HouseBook.company.controller;
 
-import HouseBook.company.model.User;
+import HouseBook.company.model.User.User;
 import HouseBook.company.service.UserService;
 
 import jakarta.servlet.http.*;
