@@ -11,9 +11,12 @@ import HouseBook.company.model.User.UserBookRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
@@ -36,8 +39,7 @@ public class BookService {
     @Transactional(readOnly = true)
     public java.util.List<BookResponseDTO> getUserBooks(Long userId) {
         User user = findUser(userId);
-        return userBookRepository.findAllByUserOrderByAcquiredAtDesc(user).stream()
-                .map(BookResponseDTO::from).toList();
+        return userBookRepository.findAllByUserOrderByAcquiredAtDesc(user).stream().map(BookResponseDTO::from).toList();
     }
 
     // 1. Pesquisar livros
@@ -47,13 +49,26 @@ public class BookService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o nome do livro.");
         }
 
-        JsonNode response = restClient.get().uri(uriBuilder -> uriBuilder.path("/volumes").queryParam("q", query.trim()).queryParam("maxResults", 20).queryParam("printType", "books").build()).retrieve().body(JsonNode.class);
+        try {
+            JsonNode response = restClient.get().uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/volumes").queryParam("q", query.trim()).queryParam("maxResults", 20).queryParam("printType", "books");
+                        if (hasApiKey()) {
+                            builder.queryParam("key", apiKey.trim());
+                        }
+                        return builder.build();
+                    }).retrieve().body(JsonNode.class);
 
-        if (response == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível consultar a Google Books.");
+            if (response == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books não retornou uma resposta válida.");
+            }
+            return response;
         }
-
-        return response;
+        catch (RestClientResponseException ex) {
+            throw googleBooksException(ex);
+        }
+        catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Google Books. Verifique a conexão e tente novamente.", ex);
+        }
     }
 
     // 2. Adquirir livro
@@ -113,13 +128,26 @@ public class BookService {
     // 5. Buscar livros novos
     public JsonNode getNewBooks() {
 
-        JsonNode response = restClient.get().uri(uriBuilder -> uriBuilder.path("/volumes").queryParam("q", "subject:fiction").queryParam("orderBy", "newest").queryParam("maxResults", 20).build()).retrieve().body(JsonNode.class);
+        try {
+            JsonNode response = restClient.get().uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/volumes").queryParam("q", "subject:fiction").queryParam("orderBy", "newest").queryParam("maxResults", 20).queryParam("printType", "books");
+                        if (hasApiKey()) {
+                            builder.queryParam("key", apiKey.trim());
+                        }
+                        return builder.build();
+                    }).retrieve().body(JsonNode.class);
 
-        if (response == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível buscar novos livros.");
+            if (response == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books não retornou uma resposta válida.");
+            }
+            return response;
         }
-
-        return response;
+        catch (RestClientResponseException ex) {
+            throw googleBooksException(ex);
+        }
+        catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Google Books. Verifique a conexão e tente novamente.", ex);
+        }
     }
 
     // Buscar usuário pelo ID autenticado
@@ -137,7 +165,21 @@ public class BookService {
     // Buscar informações na Google Books e salvar no catálogo
     private Book saveBookFromGoogle(String googleBookId) {
 
-        JsonNode response = restClient.get().uri("/volumes/{id}", googleBookId).retrieve().body(JsonNode.class);
+        JsonNode response;
+        try {
+            response = restClient.get().uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/volumes/{id}");
+                        if (hasApiKey()) {
+                            builder.queryParam("key", apiKey.trim());
+                        }
+                        return builder.build(googleBookId);}).retrieve().body(JsonNode.class);
+        }
+        catch (RestClientResponseException ex) {
+            throw googleBooksException(ex);
+        }
+        catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível consultar os dados do livro na Google Books.", ex);
+        }
 
         if (response == null || response.isEmpty() || response.path("volumeInfo").isMissingNode() || response.path("volumeInfo").isEmpty()) {
 
@@ -184,4 +226,25 @@ public class BookService {
 
         return bookRepository.save(book);
     }
+
+    private boolean hasApiKey() {
+        return apiKey != null && !apiKey.isBlank();
+    }
+
+    private ResponseStatusException googleBooksException(RestClientResponseException ex) {
+        int status = ex.getStatusCode().value();
+
+        if (status == 429) {
+            return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "A Google Books atingiu o limite de consultas. Aguarde um pouco e tente novamente.", ex);
+        }
+
+        if (status == 403) {
+            return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books recusou a chave. Confira se a Google Books API está ativada e se a chave pertence ao projeto correto.", ex);
+        }
+
+        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books respondeu com HTTP " + status + ". Tente novamente mais tarde.", ex);
+    }
+
+    @Value("${google.books.api.key:}")
+    private String apiKey;
 }

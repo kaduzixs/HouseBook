@@ -16,9 +16,14 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
   web:
     servlet:
       multipart:
         max-file-size: 2MB
         max-request-size: 3MB
 
+google:
+  books:
+    api:
+      key: ${BOOKS_KEY:}

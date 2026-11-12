@@ -10,6 +10,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -88,6 +89,11 @@ public class UserController {
         session.invalidate();
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok("Logout realizado com sucesso!");
+    }
+
+    @GetMapping("/csrf")
+    public ResponseEntity<CsrfToken> csrf(CsrfToken csrfToken) {
+        return ResponseEntity.ok(csrfToken);
     }
 }
 
