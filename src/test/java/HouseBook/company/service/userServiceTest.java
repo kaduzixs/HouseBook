@@ -1,8 +1,9 @@
 package HouseBook.company.service;
 
 import HouseBook.company.model.User.User;
-import UserRepository;
 
+
+import HouseBook.company.model.User.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
