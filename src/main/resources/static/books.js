@@ -15,12 +15,53 @@
     function card(b,mode){const owned=mode!=='discover';let actions='';if(mode==='discover')actions=`<button class="book-action" data-action="add" data-id="${esc(b.googleBookId)}">＋ Adicionar</button>`;else{if(b.readingStatus!=='LIDO')actions+=`<button class="book-action" data-action="read" data-id="${esc(b.userBookId)}">✓ Concluir</button>`;actions+=`<button class="book-action danger" data-action="remove" data-id="${esc(b.userBookId)}">Remover</button>`}return `<article class="book-card"><div class="book-cover-wrap" data-action="details" data-id="${esc(owned?b.userBookId:b.googleBookId)}" data-mode="${mode}">${cover(b)}${owned?`<span class="book-status">${esc(statusLabel(b.readingStatus))}</span>`:''}</div><div class="book-info"><h3 class="book-title">${esc(b.title)}</h3><p class="book-author">${esc(b.authors)}</p><div class="book-actions">${actions}</div></div></article>`}
     function updateStats(){$('#total-books').textContent=state.library.length;$('#reading-books').textContent=state.library.filter(b=>b.readingStatus==='EM_ANDAMENTO').length;$('#finished-books').textContent=state.library.filter(b=>b.readingStatus==='LIDO').length}
     function renderLibrary(){const q=state.libraryQuery.toLocaleLowerCase('pt-BR');const list=state.library.filter(b=>(state.filter==='all'||b.readingStatus===state.filter)&&(!q||b.title.toLocaleLowerCase('pt-BR').includes(q)||b.authors.toLocaleLowerCase('pt-BR').includes(q)));libraryGrid.innerHTML=list.map(b=>card(b,'library')).join('');$('#library-empty').hidden=list.length>0;updateStats()}
-    function renderDiscoveries(){$('#discover-grid').innerHTML=state.discoveries.map(b=>card(b,'discover')).join('');$('#discover-empty').hidden=state.discoveries.length>0}
+    function renderDiscoveries(emptyTitle='Nenhum livro encontrado.',emptyText='Tente pesquisar por outro título ou autor.') {
+        $('#discover-grid').innerHTML=state.discoveries.map(b=>card(b,'discover')).join('');
+        $('#discover-empty').hidden=state.discoveries.length>0;
+        $('#discover-empty h3').textContent=emptyTitle;
+        $('#discover-empty p').textContent=emptyText;
+    }
     function renderHistory(){const list=state.library.filter(b=>b.readingStatus==='LIDO');historyGrid.innerHTML=list.map(b=>card(b,'history')).join('');$('#history-empty').hidden=list.length>0}
     function renderAll(){renderLibrary();renderDiscoveries();renderHistory()}
     async function loadLibrary(){try{const d=await request(`${API}/mine`);state.library=Array.isArray(d)?d.map(normalizeBook):[];renderAll()}catch(e){msg(`${e.message} (GET ${API}/mine)`, 'error')}}
-    async function loadNewBooks(){try{state.discoveries=googleItems(await request(`${API}/new`));renderDiscoveries()}catch(e){msg(e.message,'error')}}
-    async function searchBooks(q){if(!q.trim())return;showView('discover');$('#book-search').value=q;msg('Pesquisando livros...');try{state.discoveries=googleItems(await request(`${API}/search?q=${encodeURIComponent(q.trim())}`));$('#discover-title').textContent='Resultados da pesquisa';$('#discover-eyebrow').textContent='RESULTADOS ENCONTRADOS';renderDiscoveries();msg(state.discoveries.length?`${state.discoveries.length} resultado(s) encontrado(s).`:'Nenhum livro encontrado.')}catch(e){msg(e.message,'error')}}
+    async function loadNewBooks(){
+        msg('Preparando uma seleção de livros...');
+        renderDiscoveries('Carregando descobertas...', 'Estamos consultando o catálogo de livros.');
+        try {
+            const data=await request(`${API}/new`);
+            state.discoveries=googleItems(data);
+            renderDiscoveries(
+                state.discoveries.length ? '' : 'Nenhum livro disponível neste momento.',
+                state.discoveries.length ? '' : 'A Google Books não retornou obras para a seleção inicial. Tente novamente em instantes.'
+            );
+            if(state.discoveries.length) msg(`${state.discoveries.length} livros disponíveis para descobrir.`);
+            else msg('A consulta foi concluída, mas não retornou livros.','error');
+        } catch(e) {
+            state.discoveries=[];
+            renderDiscoveries('Não foi possível carregar os livros.', 'Confira a conexão e a configuração BOOKS_KEY. Você pode tentar novamente.');
+            msg(`${e.message} (GET ${API}/new)`, 'error');
+        }
+    }
+    async function searchBooks(q){
+        if(!q.trim()) return;
+        showView('discover');
+        $('#book-search').value=q;
+        msg('Pesquisando livros...');
+        $('#discover-title').textContent='Resultados da pesquisa';
+        $('#discover-eyebrow').textContent='RESULTADOS ENCONTRADOS';
+        try {
+            state.discoveries=googleItems(await request(`${API}/search?q=${encodeURIComponent(q.trim())}`));
+            renderDiscoveries(
+                'Nenhum livro encontrado.',
+                'Não encontramos resultados para essa pesquisa. Tente outro título, autor ou assunto.'
+            );
+            msg(state.discoveries.length?`${state.discoveries.length} resultado(s) encontrado(s).`:'Nenhum livro encontrado.');
+        } catch(e) {
+            state.discoveries=[];
+            renderDiscoveries('A pesquisa não pôde ser concluída.', 'Confira a conexão e a configuração BOOKS_KEY e tente novamente.');
+            msg(`${e.message} (pesquisa)`, 'error');
+        }
+    }
     async function acquire(id){try{await request(`${API}/acquire/${encodeURIComponent(id)}`,{method:'POST'});msg('Livro adicionado à sua biblioteca!','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
     async function markRead(id){try{await request(`${API}/history/${encodeURIComponent(id)}`,{method:'POST'});msg('Livro marcado como concluído!','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
     async function removeBook(id){if(!confirm('Deseja remover este livro da sua biblioteca?'))return;try{await request(`${API}/${encodeURIComponent(id)}`,{method:'DELETE'});msg('Livro removido da sua biblioteca.','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
@@ -32,7 +73,7 @@
     async function logout(){try{await request('/user/logout',{method:'POST'});location.replace('/index.html')}catch(e){msg(e.message,'error')}}
     function setupAccessibility(){const panel=$('#access-panel'),toggle=$('#access-toggle');function open(){panel.hidden=false;toggle.setAttribute('aria-expanded','true')}function close(){panel.hidden=true;toggle.setAttribute('aria-expanded','false')}toggle.addEventListener('click',()=>panel.hidden?open():close());$('#menu-access-button').addEventListener('click',()=>{open();$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false')});$('#close-access').addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape'){close();$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false')}});document.querySelectorAll('[data-font-choice]').forEach(b=>b.addEventListener('click',()=>{document.documentElement.style.setProperty('--font-scale',b.dataset.fontChoice==='large'?'1.15':'1');document.querySelectorAll('[data-font-choice]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}));$('#contrast-toggle').addEventListener('click',e=>{const on=document.documentElement.dataset.contrast!=='high';document.documentElement.dataset.contrast=on?'high':'normal';e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.textContent=on?'Desativar alto contraste':'Ativar alto contraste'});document.querySelectorAll('[data-theme-choice]').forEach(b=>b.addEventListener('click',()=>{document.documentElement.dataset.theme=b.dataset.themeChoice;document.querySelectorAll('[data-theme-choice]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}))}
     $('#profile-menu-toggle').addEventListener('click',()=>{const menu=$('#profile-menu');menu.hidden=!menu.hidden;$('#profile-menu-toggle').setAttribute('aria-expanded',String(!menu.hidden))});$('#edit-profile-button').addEventListener('click',()=>{$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false');$('#profile-feedback').textContent='';$('#profile-dialog').showModal()});$('#profile-photo-input').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>2*1024*1024){$('#profile-feedback').textContent='Escolha JPG, PNG ou WEBP com até 2 MB.';e.target.value='';state.profilePhotoFile=null;return}state.profilePhotoFile=f;const url=URL.createObjectURL(f);$('#profile-preview').src=url;$('#profile-preview').hidden=false;$('#profile-preview-initial').hidden=true});$('#profile-form').addEventListener('submit',saveProfile);document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.closeDialog).close()));
-    document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('#discover-button').addEventListener('click',()=>showView('discover'));document.querySelectorAll('[data-open-discover]').forEach(b=>b.addEventListener('click',()=>showView('discover')));document.querySelectorAll('.filter-button').forEach(b=>b.addEventListener('click',()=>{state.filter=b.dataset.filter;document.querySelectorAll('.filter-button').forEach(x=>x.classList.toggle('active',x===b));renderLibrary()}));$('#library-search').addEventListener('input',e=>{state.libraryQuery=e.target.value;renderLibrary()});$('#book-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#book-search').value)});$('#global-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#global-search').value)});
+    document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('#discover-button').addEventListener('click',()=>showView('discover'));document.querySelectorAll('[data-open-discover]').forEach(b=>b.addEventListener('click',()=>showView('discover')));document.querySelectorAll('.filter-button').forEach(b=>b.addEventListener('click',()=>{state.filter=b.dataset.filter;document.querySelectorAll('.filter-button').forEach(x=>x.classList.toggle('active',x===b));renderLibrary()}));$('#library-search').addEventListener('input',e=>{state.libraryQuery=e.target.value;renderLibrary()});$('#book-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#book-search').value)});$('#retry-discover').addEventListener('click',loadNewBooks);$('#global-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#global-search').value)});
     document.addEventListener('click',async e=>{const el=e.target.closest('[data-action]');if(!el)return;const {action,id,mode}=el.dataset;if(action==='add')return acquire(id);if(action==='read')return markRead(id);if(action==='remove')return removeBook(id);if(action==='details'){const list=mode==='discover'?state.discoveries:state.library;const book=mode==='discover'?list.find(b=>b.googleBookId===id):list.find(b=>String(b.userBookId)===id);if(book)showDetails(book)}});$('#dialog-close').addEventListener('click',()=>bookDialog.close());$('#logout-button').addEventListener('click',logout);setupAccessibility();
     async function init(){await ensureCsrf();await loadUser();await Promise.all([loadLibrary(),loadNewBooks()])}init();
 })();

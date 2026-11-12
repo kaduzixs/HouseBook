@@ -50,16 +50,13 @@ public class BookService {
         }
 
         try {
-            JsonNode response = restClient.get().uri(uriBuilder -> {
-                        var builder = uriBuilder.path("/volumes").queryParam("q", query.trim()).queryParam("maxResults", 20).queryParam("printType", "books");
-                        if (hasApiKey()) {
-                            builder.queryParam("key", apiKey.trim());
-                        }
-                        return builder.build();
-                    }).retrieve().body(JsonNode.class);
+            JsonNode response = requestVolumes(query.trim(), "relevance");
 
-            if (response == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books não retornou uma resposta válida.");
+            if (response == null || response.path("items").isMissingNode()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "A Google Books retornou uma resposta sem a lista de livros."
+                );
             }
             return response;
         }
@@ -129,16 +126,14 @@ public class BookService {
     public JsonNode getNewBooks() {
 
         try {
-            JsonNode response = restClient.get().uri(uriBuilder -> {
-                        var builder = uriBuilder.path("/volumes").queryParam("q", "subject:fiction").queryParam("orderBy", "newest").queryParam("maxResults", 20).queryParam("printType", "books");
-                        if (hasApiKey()) {
-                            builder.queryParam("key", apiKey.trim());
-                        }
-                        return builder.build();
-                    }).retrieve().body(JsonNode.class);
+            // A consulta é ampla para montar uma vitrine automaticamente ao abrir a biblioteca.
+            JsonNode response = requestVolumes("subject:fiction", "relevance");
 
-            if (response == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books não retornou uma resposta válida.");
+            if (response == null || response.path("items").isMissingNode()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "A Google Books retornou uma resposta sem a lista de livros."
+                );
             }
             return response;
         }
@@ -148,6 +143,30 @@ public class BookService {
         catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Google Books. Verifique a conexão e tente novamente.", ex);
         }
+    }
+
+    /**
+     * Consulta a coleção pública de volumes da Google Books.
+     * A chave é anexada apenas no servidor; ela nunca é enviada ao navegador.
+     */
+    private JsonNode requestVolumes(String query, String orderBy) {
+        return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder
+                            .path("/volumes")
+                            .queryParam("q", query)
+                            .queryParam("maxResults", 20)
+                            .queryParam("printType", "books")
+                            .queryParam("orderBy", orderBy);
+
+                    if (hasApiKey()) {
+                        builder.queryParam("key", apiKey.trim());
+                    }
+
+                    return builder.build();
+                })
+                .retrieve()
+                .body(JsonNode.class);
     }
 
     // Buscar usuário pelo ID autenticado
@@ -168,11 +187,11 @@ public class BookService {
         JsonNode response;
         try {
             response = restClient.get().uri(uriBuilder -> {
-                        var builder = uriBuilder.path("/volumes/{id}");
-                        if (hasApiKey()) {
-                            builder.queryParam("key", apiKey.trim());
-                        }
-                        return builder.build(googleBookId);}).retrieve().body(JsonNode.class);
+                var builder = uriBuilder.path("/volumes/{id}");
+                if (hasApiKey()) {
+                    builder.queryParam("key", apiKey.trim());
+                }
+                return builder.build(googleBookId);}).retrieve().body(JsonNode.class);
         }
         catch (RestClientResponseException ex) {
             throw googleBooksException(ex);
