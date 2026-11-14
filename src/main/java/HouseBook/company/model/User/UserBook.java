@@ -1,6 +1,8 @@
 package HouseBook.company.model.User;
 
+import HouseBook.company.enums.ReadingStatus;
 import HouseBook.company.model.Book.Book;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,8 +11,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_books", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "book_id"})})
-@Setter
 @Getter
+@Setter
 public class UserBook {
 
     @Id
@@ -27,7 +29,20 @@ public class UserBook {
 
     private LocalDateTime acquiredAt;
 
-    private String readingStatus;
+    @Enumerated(EnumType.STRING)
+    private ReadingStatus readingStatus;
+
+    private Integer currentPage;
+
+    private LocalDateTime startedAt;
+
+    private LocalDateTime completedAt;
 
     private Integer personalRating;
+
+    private Integer currentChapter;
+
+    private Integer currentParagraph;
+
 }
+
