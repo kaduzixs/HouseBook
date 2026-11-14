@@ -2,6 +2,7 @@
 package HouseBook.company.service;
 
 import HouseBook.company.dto.BookResponseDTO;
+import HouseBook.company.enums.ReadingStatus;
 import HouseBook.company.model.Book.Book;
 import HouseBook.company.model.Book.BookRepository;
 import HouseBook.company.model.User.User;
@@ -89,7 +90,7 @@ public class BookService {
         userBook.setUser(user);
         userBook.setBook(book);
         userBook.setAcquiredAt(LocalDateTime.now());
-        userBook.setReadingStatus("NAO_INICIADO");
+        userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
 
         UserBook saved = userBookRepository.save(userBook);
 
@@ -104,7 +105,8 @@ public class BookService {
 
         UserBook userBook = findUserBook(userBookId, user);
 
-        userBook.setReadingStatus("LIDO");
+        userBook.setReadingStatus(ReadingStatus.COMPLETED);
+        userBook.setCompletedAt(LocalDateTime.now());
 
         UserBook saved = userBookRepository.save(userBook);
 
@@ -151,14 +153,14 @@ public class BookService {
      */
     private JsonNode requestVolumes(String query, String orderBy) {
         return restClient.get().uri(uriBuilder -> {
-                    var builder = uriBuilder.path("/volumes").queryParam("q", query).queryParam("maxResults", 20).queryParam("printType", "books").queryParam("orderBy", orderBy);
+            var builder = uriBuilder.path("/volumes").queryParam("q", query).queryParam("maxResults", 20).queryParam("printType", "books").queryParam("orderBy", orderBy);
 
-                    if (hasApiKey()) {
-                        builder.queryParam("key", apiKey.trim());
-                    }
+            if (hasApiKey()) {
+                builder.queryParam("key", apiKey.trim());
+            }
 
-                    return builder.build();
-                }).retrieve().body(JsonNode.class);
+            return builder.build();
+        }).retrieve().body(JsonNode.class);
     }
 
     // Buscar usuário pelo ID autenticado

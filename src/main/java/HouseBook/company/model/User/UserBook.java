@@ -45,4 +45,3 @@ public class UserBook {
     private Integer currentParagraph;
 
 }
-

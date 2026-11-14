@@ -1,4 +1,4 @@
-package HouseBook.company.dto;
+package HouseBook.company.Request;
 
 import jakarta.validation.constraints.*;
 

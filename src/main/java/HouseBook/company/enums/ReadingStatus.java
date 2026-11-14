@@ -4,5 +4,9 @@ public enum ReadingStatus {
     WANT_TO_READ,
     READING,
     COMPLETED,
-    PAUSED
+    PAUSED,
+    // Compatibilidade com registros gravados por versões anteriores do HouseBook.
+    @Deprecated NAO_INICIADO,
+    @Deprecated EM_ANDAMENTO,
+    @Deprecated LIDO
 }
