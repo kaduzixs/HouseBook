@@ -150,23 +150,15 @@ public class BookService {
      * A chave é anexada apenas no servidor; ela nunca é enviada ao navegador.
      */
     private JsonNode requestVolumes(String query, String orderBy) {
-        return restClient.get()
-                .uri(uriBuilder -> {
-                    var builder = uriBuilder
-                            .path("/volumes")
-                            .queryParam("q", query)
-                            .queryParam("maxResults", 20)
-                            .queryParam("printType", "books")
-                            .queryParam("orderBy", orderBy);
+        return restClient.get().uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/volumes").queryParam("q", query).queryParam("maxResults", 20).queryParam("printType", "books").queryParam("orderBy", orderBy);
 
                     if (hasApiKey()) {
                         builder.queryParam("key", apiKey.trim());
                     }
 
                     return builder.build();
-                })
-                .retrieve()
-                .body(JsonNode.class);
+                }).retrieve().body(JsonNode.class);
     }
 
     // Buscar usuário pelo ID autenticado
