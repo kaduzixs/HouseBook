@@ -12,8 +12,84 @@
     function googleItems(d){return Array.isArray(d?.items)?d.items.map(normalizeGoogle):[]}
     const statusLabel=s=>({WANT_TO_READ:'Quero ler',READING:'Em andamento',COMPLETED:'Concluído',PAUSED:'Pausado',NAO_INICIADO:'Não iniciado',EM_ANDAMENTO:'Em andamento',LIDO:'Concluído'}[s]||'Na biblioteca');
     function cover(b){return b.thumbnail?`<img class="book-cover" src="${esc(b.thumbnail)}" alt="Capa de ${esc(b.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;cover-placeholder&quot;><span>✧</span><strong>${esc(b.title)}</strong></div>'">`:`<div class="cover-placeholder"><span>✧</span><strong>${esc(b.title)}</strong></div>`}
-    function card(b,mode){const owned=mode!=='discover';let actions='';if(mode==='discover')actions=`<button class="book-action" data-action="add" data-id="${esc(b.googleBookId)}">＋ Adicionar</button>`;else{actions+=`<button class="book-action" data-action="open-reader" data-id="${esc(b.userBookId)}">📖 Ler agora</button>`;if(!['COMPLETED','LIDO'].includes(b.readingStatus))actions+=`<button class="book-action" data-action="read" data-id="${esc(b.userBookId)}">✓ Concluir</button>`;actions+=`<button class="book-action danger" data-action="remove" data-id="${esc(b.userBookId)}">Remover</button>`}return `<article class="book-card"><div class="book-cover-wrap" data-action="details" data-id="${esc(owned?b.userBookId:b.googleBookId)}" data-mode="${mode}">${cover(b)}${owned?`<span class="book-status">${esc(statusLabel(b.readingStatus))}</span>`:''}</div><div class="book-info"><h3 class="book-title">${esc(b.title)}</h3><p class="book-author">${esc(b.authors)}</p><div class="book-actions">${actions}</div></div></article>`}
-    function updateStats(){$('#total-books').textContent=state.library.length;$('#reading-books').textContent=state.library.filter(b=>b.readingStatus==='EM_ANDAMENTO').length;$('#finished-books').textContent=state.library.filter(b=>b.readingStatus==='LIDO').length}
+    function card(b, mode) {
+        const owned = mode !== 'discover';
+
+        const alreadyAdded = state.library.some(
+            book => book.googleBookId === b.googleBookId
+        );
+
+        let actions = '';
+
+        if (mode === 'discover') {
+            actions = alreadyAdded
+                ? `<button class="book-action" disabled>
+                   ✓ Já adicionado
+               </button>`
+                : `<button class="book-action"
+                       data-action="add"
+                       data-id="${esc(b.googleBookId)}">
+                   ＋ Adicionar
+               </button>`;
+        } else {
+            actions += `
+            <button class="book-action"
+                    data-action="open-reader"
+                    data-id="${esc(b.userBookId)}">
+                📖 Ler agora
+            </button>`;
+
+            if (b.readingStatus !== 'COMPLETED') {
+                actions += `
+                <button class="book-action"
+                        data-action="read"
+                        data-id="${esc(b.userBookId)}">
+                    ✓ Concluir
+                </button>`;
+            }
+
+            actions += `
+            <button class="book-action danger"
+                    data-action="remove"
+                    data-id="${esc(b.userBookId)}">
+                Remover
+            </button>`;
+        }
+
+        return `
+        <article class="book-card">
+            <div class="book-cover-wrap"
+                 data-action="details"
+                 data-id="${esc(owned ? b.userBookId : b.googleBookId)}"
+                 data-mode="${mode}">
+                ${cover(b)}
+                ${owned ? `
+                    <span class="book-status">
+                        ${esc(statusLabel(b.readingStatus))}
+                    </span>` : ''}
+            </div>
+
+            <div class="book-info">
+                <h3 class="book-title">${esc(b.title)}</h3>
+                <p class="book-author">${esc(b.authors)}</p>
+                <div class="book-actions">${actions}</div>
+            </div>
+        </article>
+    `;
+    }
+    function updateStats() {
+        $('#total-books').textContent = state.library.length;
+
+        $('#reading-books').textContent =
+            state.library.filter(
+                b => b.readingStatus === 'READING'
+            ).length;
+
+        $('#finished-books').textContent =
+            state.library.filter(
+                b => b.readingStatus === 'COMPLETED'
+            ).length;
+    }
     function renderLibrary(){const q=state.libraryQuery.toLocaleLowerCase('pt-BR');const list=state.library.filter(b=>(state.filter==='all'||b.readingStatus===state.filter)&&(!q||b.title.toLocaleLowerCase('pt-BR').includes(q)||b.authors.toLocaleLowerCase('pt-BR').includes(q)));libraryGrid.innerHTML=list.map(b=>card(b,'library')).join('');$('#library-empty').hidden=list.length>0;updateStats()}
     function renderDiscoveries(emptyTitle='Nenhum livro encontrado.',emptyText='Tente pesquisar por outro título ou autor.') {
         $('#discover-grid').innerHTML=state.discoveries.map(b=>card(b,'discover')).join('');
@@ -21,8 +97,17 @@
         $('#discover-empty h3').textContent=emptyTitle;
         $('#discover-empty p').textContent=emptyText;
     }
-    function renderHistory(){const list=state.library.filter(b=>b.readingStatus==='LIDO');historyGrid.innerHTML=list.map(b=>card(b,'history')).join('');$('#history-empty').hidden=list.length>0}
-    function renderAll(){renderLibrary();renderDiscoveries();renderHistory()}
+    function renderHistory() {
+        const list = state.library.filter(
+            b => b.readingStatus === 'COMPLETED'
+        );
+
+        historyGrid.innerHTML = list
+            .map(b => card(b, 'history'))
+            .join('');
+
+        $('#history-empty').hidden = list.length > 0;
+    }    function renderAll(){renderLibrary();renderDiscoveries();renderHistory()}
     async function loadLibrary(){try{const d=await request(`${API}/mine`);state.library=Array.isArray(d)?d.map(normalizeBook):[];renderAll()}catch(e){msg(`${e.message} (GET ${API}/mine)`, 'error')}}
     async function loadNewBooks(){
         msg('Preparando uma seleção de livros...');

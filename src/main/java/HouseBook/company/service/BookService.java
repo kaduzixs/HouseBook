@@ -10,6 +10,9 @@ import HouseBook.company.model.User.UserRepository;
 import HouseBook.company.model.User.UserBook;
 import HouseBook.company.model.User.UserBookRepository;
 
+
+
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +32,7 @@ import java.util.stream.StreamSupport;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -72,29 +76,57 @@ public class BookService {
     // 2. Adquirir livro
     @Transactional
     public BookResponseDTO acquireBook(String googleBookId, Long userId) {
+        log.info("Iniciando aquisição do livro. GoogleBookId={}, UserId={}", googleBookId, userId);
 
-        if (googleBookId == null || googleBookId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador do livro inválido.");
+        try {
+
+            if (googleBookId == null || googleBookId.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador do livro inválido.");
+            }
+
+            User user = findUser(userId);
+
+            log.info("Usuário localizado: {}", user.getId());
+
+            Book book = bookRepository.findByGoogleBookId(googleBookId).orElseGet(() -> {
+                        log.info("Livro não existe no catálogo. Consultando Google Books.");
+                        return saveBookFromGoogle(googleBookId);
+            });
+
+            log.info("Livro localizado/salvo. BookId={}", book.getId());
+
+            if (userBookRepository.existsByUserAndBook(user, book)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro já está na sua biblioteca.");
+            }
+
+            UserBook userBook = new UserBook();
+
+            userBook.setUser(user);
+            userBook.setBook(book);
+            userBook.setAcquiredAt(LocalDateTime.now());
+            userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
+
+            log.info("Salvando relacionamento UserBook.");
+
+            UserBook saved = userBookRepository.save(userBook);
+
+            log.info("Livro adicionado com sucesso. UserBookId={}", saved.getId());
+
+            return BookResponseDTO.from(saved);
+
         }
+        catch (ResponseStatusException ex) {
+            log.warn("Falha controlada ao adicionar livro: {}", ex.getReason());
 
-        User user = findUser(userId);
+            throw ex;
 
-        Book book = bookRepository.findByGoogleBookId(googleBookId).orElseGet(() -> saveBookFromGoogle(googleBookId));
-
-        if (userBookRepository.existsByUserAndBook(user, book)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro já está na sua biblioteca.");
         }
+        catch(Exception ex) {
 
-        UserBook userBook = new UserBook();
+            log.error("ERRO INTERNO AO ADICIONAR LIVRO. GoogleBookId={}, UserId={}", googleBookId, userId, ex);
 
-        userBook.setUser(user);
-        userBook.setBook(book);
-        userBook.setAcquiredAt(LocalDateTime.now());
-        userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
-
-        UserBook saved = userBookRepository.save(userBook);
-
-        return BookResponseDTO.from(saved);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao adicionar livro. Verifique os logs.", ex);
+        }
     }
 
     // 3. Adicionar livro ao histórico
