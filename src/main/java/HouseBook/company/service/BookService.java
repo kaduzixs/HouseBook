@@ -102,9 +102,9 @@ public class BookService {
             log.info("[2/5] Buscando livro no catálogo...");
 
             Book book = bookRepository.findByGoogleBookId(googleBookId).orElseGet(() -> {
-                        log.info("Livro não encontrado no banco.");
-                        log.info("Consultando Google Books...");
-                        return saveBookFromGoogle(googleBookId);
+                log.info("Livro não encontrado no banco.");
+                log.info("Consultando Google Books...");
+                return saveBookFromGoogle(googleBookId);
             });
 
             log.info("Livro encontrado/salvo.");
@@ -134,7 +134,9 @@ public class BookService {
             // 6. Salvar
             log.info("[5/5] Salvando UserBook no banco...");
 
-            UserBook saved = userBookRepository.save(userBook);
+            // Flush executa o INSERT agora, permitindo registrar a exceção real do PostgreSQL
+            // dentro deste try/catch, em vez de descobri-la somente no commit da transação.
+            UserBook saved = userBookRepository.saveAndFlush(userBook);
 
             log.info("UserBook salvo. ID: {}", saved.getId());
 
@@ -163,6 +165,7 @@ public class BookService {
             log.error("Exceção: {}", ex.getClass().getName());
 
             log.error("Mensagem: {}", ex.getMessage());
+            log.error("Causa raiz: {}", rootCauseMessage(ex));
 
             // Stack trace completo
             log.error("Stack trace completo da falha:", ex);
@@ -312,7 +315,17 @@ public class BookService {
         // Recuperar capa
         book.setThumbnail(volume.path("imageLinks").path("thumbnail").asText(""));
 
-        return bookRepository.save(book);
+        // Executa o INSERT do catálogo imediatamente para detectar problemas de coluna/tamanho.
+        return bookRepository.saveAndFlush(book);
+    }
+
+    // Retorna a mensagem da exceção mais profunda, útil para diagnosticar falhas do PostgreSQL.
+    private String rootCauseMessage(Throwable ex) {
+        Throwable cause = ex;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause.getClass().getName() + ": " + cause.getMessage();
     }
 
     private boolean hasApiKey() {

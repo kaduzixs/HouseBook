@@ -10,6 +10,7 @@ import HouseBook.company.model.User.UserBook;
 import HouseBook.company.model.User.UserBookRepository;
 import HouseBook.company.model.User.UserRepository;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,21 +58,35 @@ public class ReadingService {
         catch (IOException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não foi possível ler o arquivo.", ex); }
         if (text.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O arquivo está vazio.");
 
-        // Um arquivo simples vira um capítulo; separadores de formulário (\f) criam capítulos adicionais.
-        String[] parts = text.split("\\n?\\f\\n?");
+        // Um arquivo simples vira um capítulo; o caractere de formulário (\f) separa capítulos.
+        String[] parts = text.split("\\f");
+
+        // Remove os capítulos antigos e executa o DELETE antes dos INSERTs, evitando conflito
+        // com a chave única (book_id, chapter_number) ao substituir o conteúdo.
         chapterRepository.deleteAllByBookId(userBook.getBook().getId());
+
         List<BookChapter> chapters = new ArrayList<>();
-        for (int i = 0; i < parts.length; i++) {
-            String content = parts[i].trim();
+        int chapterNumber = 1;
+        for (String part : parts) {
+            String content = part.trim();
             if (content.isBlank()) continue;
+
             BookChapter chapter = new BookChapter();
             chapter.setBook(userBook.getBook());
-            chapter.setChapterNumber(i + 1);
-            chapter.setTitle(parts.length == 1 ? "Texto completo" : "Parte " + (i + 1));
+            chapter.setChapterNumber(chapterNumber);
+            chapter.setTitle(parts.length == 1 ? "Texto completo" : "Parte " + chapterNumber);
             chapter.setContent(content);
             chapters.add(chapter);
+            chapterNumber++;
         }
-        List<ChapterResponseDTO> saved = chapterRepository.saveAll(chapters).stream().map(this::toDto).toList();
+
+        if (chapters.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O arquivo não contém capítulos válidos.");
+        }
+
+        // saveAllAndFlush faz o banco validar os INSERTs ainda dentro deste método.
+        List<ChapterResponseDTO> saved = chapterRepository.saveAllAndFlush(chapters)
+                .stream().map(this::toDto).toList();
         if (userBook.getReadingStatus() == null || userBook.getReadingStatus() == ReadingStatus.WANT_TO_READ) userBook.setReadingStatus(ReadingStatus.READING);
         if (userBook.getStartedAt() == null) userBook.setStartedAt(LocalDateTime.now());
         userBook.setCurrentChapter(1);
@@ -82,10 +97,18 @@ public class ReadingService {
 
     @Transactional
     public void updateProgress(Long userBookId, ReadingProgressRequest request, Long userId) {
+        if (request == null || request.currentChapter() == null || request.currentParagraph() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o capítulo e o parágrafo atual.");
+        }
         UserBook userBook = ownedBook(userBookId, userId);
         long total = chapterRepository.findAllByBookIdOrderByChapterNumberAsc(userBook.getBook().getId()).size();
         if (total == 0) throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro ainda não possui conteúdo de leitura.");
-        if (request.currentChapter() > total) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Capítulo inválido.");
+        if (request.currentChapter() < 1 || request.currentChapter() > total) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Capítulo inválido.");
+        }
+        if (request.currentParagraph() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parágrafo inválido.");
+        }
         userBook.setCurrentChapter(request.currentChapter());
         userBook.setCurrentParagraph(request.currentParagraph());
         if (userBook.getReadingStatus() != ReadingStatus.COMPLETED) userBook.setReadingStatus(ReadingStatus.READING);

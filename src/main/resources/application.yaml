@@ -3,11 +3,11 @@ spring:
   application:
     name: company
 
-  datasource:
-    url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/housebook?prepareThreshold=0
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+    datasource:
+      url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/postgres?prepareThreshold=0
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
@@ -20,8 +20,9 @@ spring:
   web:
     servlet:
       multipart:
-        max-file-size: 2MB
-        max-request-size: 3MB
+        # Mantém o limite alinhado ao MAX_TEXT_BYTES do ReadingService (5 MB).
+        max-file-size: 5MB
+        max-request-size: 6MB
 
 google:
   books:
