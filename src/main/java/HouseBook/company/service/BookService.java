@@ -76,28 +76,53 @@ public class BookService {
     // 2. Adquirir livro
     @Transactional
     public BookResponseDTO acquireBook(String googleBookId, Long userId) {
-        log.info("Iniciando aquisição do livro. GoogleBookId={}, UserId={}", googleBookId, userId);
+
+        log.info("========== INÍCIO DA AQUISIÇÃO ==========");
+        log.info("GoogleBookId: {}", googleBookId);
+        log.info("UserId: {}", userId);
 
         try {
 
+            // 1. Validar identificador
             if (googleBookId == null || googleBookId.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador do livro inválido.");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Identificador do livro inválido."
+                );
             }
+
+            // 2. Buscar usuário
+            log.info("[1/5] Buscando usuário...");
 
             User user = findUser(userId);
 
-            log.info("Usuário localizado: {}", user.getId());
+            log.info("Usuário encontrado: {}", user.getId());
+
+            // 3. Buscar livro no banco ou na Google Books
+            log.info("[2/5] Buscando livro no catálogo...");
 
             Book book = bookRepository.findByGoogleBookId(googleBookId).orElseGet(() -> {
-                        log.info("Livro não existe no catálogo. Consultando Google Books.");
+                        log.info("Livro não encontrado no banco.");
+                        log.info("Consultando Google Books...");
                         return saveBookFromGoogle(googleBookId);
             });
 
-            log.info("Livro localizado/salvo. BookId={}", book.getId());
+            log.info("Livro encontrado/salvo.");
+            log.info("Book ID: {}", book.getId());
+            log.info("Título: {}", book.getTitle());
+
+            // 4. Verificar duplicidade
+            log.info("[3/5] Verificando duplicidade...");
 
             if (userBookRepository.existsByUserAndBook(user, book)) {
+
+                log.warn("Livro já pertence à biblioteca do usuário.");
+
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro já está na sua biblioteca.");
             }
+
+            // 5. Criar relacionamento
+            log.info("[4/5] Criando relacionamento UserBook...");
 
             UserBook userBook = new UserBook();
 
@@ -106,28 +131,46 @@ public class BookService {
             userBook.setAcquiredAt(LocalDateTime.now());
             userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
 
-            log.info("Salvando relacionamento UserBook.");
+            // 6. Salvar
+            log.info("[5/5] Salvando UserBook no banco...");
 
             UserBook saved = userBookRepository.save(userBook);
 
-            log.info("Livro adicionado com sucesso. UserBookId={}", saved.getId());
+            log.info("UserBook salvo. ID: {}", saved.getId());
 
-            return BookResponseDTO.from(saved);
+            // 7. Converter para DTO
+            BookResponseDTO response = BookResponseDTO.from(saved);
+
+            log.info("Conversão DTO concluída.");
+            log.info("========== AQUISIÇÃO CONCLUÍDA ==========");
+
+            return response;
 
         }
         catch (ResponseStatusException ex) {
-            log.warn("Falha controlada ao adicionar livro: {}", ex.getReason());
+
+            log.warn("Falha controlada durante aquisição: {}", ex.getReason());
 
             throw ex;
 
         }
-        catch(Exception ex) {
+        catch (Exception ex) {
 
-            log.error("ERRO INTERNO AO ADICIONAR LIVRO. GoogleBookId={}, UserId={}", googleBookId, userId, ex);
+            log.error("========== ERRO INTERNO ==========");
+
+            log.error("GoogleBookId: {} | UserId: {}", googleBookId, userId);
+
+            log.error("Exceção: {}", ex.getClass().getName());
+
+            log.error("Mensagem: {}", ex.getMessage());
+
+            // Stack trace completo
+            log.error("Stack trace completo da falha:", ex);
 
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao adicionar livro. Verifique os logs.", ex);
         }
     }
+
 
     // 3. Adicionar livro ao histórico
     @Transactional
