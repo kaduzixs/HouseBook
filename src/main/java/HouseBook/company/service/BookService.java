@@ -13,6 +13,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import java.net.http.HttpClient;
+import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,7 +33,18 @@ public class BookService {
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final UserBookRepository userBookRepository;
-    private final RestClient restClient = RestClient.builder().baseUrl("https://gutendex.com").build();
+    // Cliente HTTP com limites de conexão e leitura para evitar requisições presas no Render.
+    private static final Logger log = LoggerFactory.getLogger(BookService.class);
+    private final RestClient restClient = createGutendexClient();
+
+    private static RestClient createGutendexClient() {
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NORMAL).build();
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofSeconds(20));
+
+        return RestClient.builder().baseUrl("https://gutendex.com").requestFactory(requestFactory).build();
+    }
 
     @Transactional(readOnly = true)
     public java.util.List<BookResponseDTO> getUserBooks(Long userId) {
@@ -42,29 +58,21 @@ public class BookService {
         }
 
         try {
-            JsonNode response = fetchSearch(query, null, null);
-            if (response.path("results").isArray() && ((language != null && !language.isBlank()) || (topic != null && !topic.isBlank()) || (mimeType != null && !mimeType.isBlank()))) {
-                var filtered = new tools.jackson.databind.node.ArrayNode(tools.jackson.databind.node.JsonNodeFactory.instance);
-                for (JsonNode book : response.path("results")) {
-                    boolean languageMatch = language == null || language.isBlank() || StreamSupport.stream(book.path("languages").spliterator(), false).anyMatch(value -> value.asText().equalsIgnoreCase(language));
-                    boolean topicMatch = topic == null || topic.isBlank() || StreamSupport.stream(book.path("subjects").spliterator(), false).anyMatch(value -> value.asText().toLowerCase().contains(topic.toLowerCase()));
-                    boolean formatMatch = mimeType == null || mimeType.isBlank() || StreamSupport.stream(book.path("formats").properties().spliterator(), false).anyMatch(entry -> entry.getKey().toLowerCase().startsWith(mimeType.toLowerCase()));
-                    if (languageMatch && topicMatch && formatMatch) filtered.add(book);
-                }
-                ((tools.jackson.databind.node.ObjectNode) response).set("results", filtered);
-            }
-            return response;
+            return fetchSearch(query, language, topic, mimeType);
         }
         catch (RestClientResponseException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
+            log.error("Gutendex respondeu HTTP {} ao pesquisar livros.", ex.getStatusCode().value(), ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
         }
         catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex. Verifique a conexão do servidor.", ex);
+            log.error("Falha de conexão ao consultar a Gutendex.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
         }
     }
 
-    private JsonNode fetchSearch(String query, String language, String topic) {
-        JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParam("page_size", 32).queryParamIfPresent("languages", java.util.Optional.ofNullable(language).filter(v -> !v.isBlank())).queryParamIfPresent("topic", java.util.Optional.ofNullable(topic).filter(v -> !v.isBlank())).build()).retrieve().body(JsonNode.class);
+    // Consulta o catálogo com os nomes de parâmetros definidos pela Gutendex.
+    private JsonNode fetchSearch(String query, String language, String topic, String mimeType) {
+        JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParamIfPresent("languages", java.util.Optional.ofNullable(language).filter(v -> !v.isBlank())).queryParamIfPresent("topic", java.util.Optional.ofNullable(topic).filter(v -> !v.isBlank())).queryParamIfPresent("mime_type", java.util.Optional.ofNullable(mimeType).filter(v -> !v.isBlank())).build()).retrieve().body(JsonNode.class);
 
         if (response == null || !response.path("results").isArray()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
@@ -74,15 +82,17 @@ public class BookService {
 
     public JsonNode getNewBooks() {
         try {
-            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").queryParam("page_size", 32).build()).retrieve().body(JsonNode.class);
+            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").build()).retrieve().body(JsonNode.class);
             if (response == null || !response.path("results").isArray()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
             return response;
         }
         catch (RestClientResponseException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
+            log.error("Gutendex respondeu HTTP {} ao carregar a seleção inicial.", ex.getStatusCode().value(), ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
         }
         catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex.", ex);
+            log.error("Falha de conexão ao carregar livros populares da Gutendex.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
         }
     }
 
@@ -126,9 +136,11 @@ public class BookService {
             return bookRepository.saveAndFlush(book);
         }
         catch (RestClientResponseException ex) {
+            log.error("Gutendex respondeu HTTP {} ao buscar o livro {}.", ex.getStatusCode().value(), id, ex);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível obter os dados do livro na Gutendex.", ex);
         }
         catch (RestClientException ex) {
+            log.error("Falha de conexão ao buscar o livro {} na Gutendex.", id, ex);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Falha ao consultar o catálogo Gutendex.", ex);
         }
     }
