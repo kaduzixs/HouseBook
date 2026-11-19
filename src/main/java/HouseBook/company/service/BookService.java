@@ -1,4 +1,3 @@
-
 package HouseBook.company.service;
 
 import HouseBook.company.dto.BookResponseDTO;
@@ -9,21 +8,14 @@ import HouseBook.company.model.User.User;
 import HouseBook.company.model.User.UserRepository;
 import HouseBook.company.model.User.UserBook;
 import HouseBook.company.model.User.UserBookRepository;
-
-
-
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
-
 import tools.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
@@ -32,14 +24,11 @@ import java.util.stream.StreamSupport;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class BookService {
-
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final UserBookRepository userBookRepository;
-
-    private final RestClient restClient = RestClient.builder().baseUrl("https://www.googleapis.com/books/v1").build();
+    private final RestClient restClient = RestClient.builder().baseUrl("https://gutendex.com").build();
 
     @Transactional(readOnly = true)
     public java.util.List<BookResponseDTO> getUserBooks(Long userId) {
@@ -47,305 +36,108 @@ public class BookService {
         return userBookRepository.findAllByUserOrderByAcquiredAtDesc(user).stream().map(BookResponseDTO::from).toList();
     }
 
-    // 1. Pesquisar livros
-    public JsonNode searchBooks(String query) {
-
-        if (query == null || query.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o nome do livro.");
-        }
-
+    public JsonNode searchBooks(String query, String language, String topic, String mimeType) {
+        if (query == null || query.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe título, autor ou assunto.");
         try {
-            JsonNode response = requestVolumes(query.trim(), "relevance");
-
-            if (response == null || response.path("items").isMissingNode()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_GATEWAY,
-                        "A Google Books retornou uma resposta sem a lista de livros."
-                );
-            }
+            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParam("page_size", 32).queryParamIfPresent("languages", java.util.Optional.ofNullable(language).filter(v -> !v.isBlank())).queryParamIfPresent("topic", java.util.Optional.ofNullable(topic).filter(v -> !v.isBlank())).queryParamIfPresent("mime_type", java.util.Optional.ofNullable(mimeType).filter(v -> !v.isBlank())).build()).retrieve().body(JsonNode.class);
+            if (response == null || !response.path("results").isArray()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
             return response;
-        }
-        catch (RestClientResponseException ex) {
-            throw googleBooksException(ex);
-        }
-        catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Google Books. Verifique a conexão e tente novamente.", ex);
+        } catch (RestClientResponseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex.", ex);
         }
     }
 
-    // 2. Adquirir livro
+    public JsonNode getNewBooks() {
+        try {
+            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").queryParam("page_size", 32).build()).retrieve().body(JsonNode.class);
+            if (response == null || !response.path("results").isArray()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
+            return response;
+        } catch (RestClientResponseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex.", ex);
+        }
+    }
+
     @Transactional
-    public BookResponseDTO acquireBook(String googleBookId, Long userId) {
+    public BookResponseDTO acquireBook(String bookId, Long userId) {
+        if (bookId == null || !bookId.matches("\\d+")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador Gutendex inválido.");
+        User user = findUser(userId);
+        Book book = bookRepository.findByGoogleBookId(bookId).orElseGet(() -> saveBookFromGutendex(bookId));
+        if (userBookRepository.existsByUserAndBook(user, book)) throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro já está na sua biblioteca.");
+        UserBook userBook = new UserBook();
+        userBook.setUser(user);
+        userBook.setBook(book);
+        userBook.setAcquiredAt(LocalDateTime.now());
+        userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
+        return BookResponseDTO.from(userBookRepository.saveAndFlush(userBook));
+    }
 
-        log.info("========== INÍCIO DA AQUISIÇÃO ==========");
-        log.info("GoogleBookId: {}", googleBookId);
-        log.info("UserId: {}", userId);
-
+    private Book saveBookFromGutendex(String id) {
         try {
-
-            // 1. Validar identificador
-            if (googleBookId == null || googleBookId.isBlank()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Identificador do livro inválido."
-                );
-            }
-
-            // 2. Buscar usuário
-            log.info("[1/5] Buscando usuário...");
-
-            User user = findUser(userId);
-
-            log.info("Usuário encontrado: {}", user.getId());
-
-            // 3. Buscar livro no banco ou na Google Books
-            log.info("[2/5] Buscando livro no catálogo...");
-
-            Book book = bookRepository.findByGoogleBookId(googleBookId).orElseGet(() -> {
-                log.info("Livro não encontrado no banco.");
-                log.info("Consultando Google Books...");
-                return saveBookFromGoogle(googleBookId);
-            });
-
-            log.info("Livro encontrado/salvo.");
-            log.info("Book ID: {}", book.getId());
-            log.info("Título: {}", book.getTitle());
-
-            // 4. Verificar duplicidade
-            log.info("[3/5] Verificando duplicidade...");
-
-            if (userBookRepository.existsByUserAndBook(user, book)) {
-
-                log.warn("Livro já pertence à biblioteca do usuário.");
-
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Este livro já está na sua biblioteca.");
-            }
-
-            // 5. Criar relacionamento
-            log.info("[4/5] Criando relacionamento UserBook...");
-
-            UserBook userBook = new UserBook();
-
-            userBook.setUser(user);
-            userBook.setBook(book);
-            userBook.setAcquiredAt(LocalDateTime.now());
-            userBook.setReadingStatus(ReadingStatus.WANT_TO_READ);
-
-            // 6. Salvar
-            log.info("[5/5] Salvando UserBook no banco...");
-
-            // Flush executa o INSERT agora, permitindo registrar a exceção real do PostgreSQL
-            // dentro deste try/catch, em vez de descobri-la somente no commit da transação.
-            UserBook saved = userBookRepository.saveAndFlush(userBook);
-
-            log.info("UserBook salvo. ID: {}", saved.getId());
-
-            // 7. Converter para DTO
-            BookResponseDTO response = BookResponseDTO.from(saved);
-
-            log.info("Conversão DTO concluída.");
-            log.info("========== AQUISIÇÃO CONCLUÍDA ==========");
-
-            return response;
-
-        }
-        catch (ResponseStatusException ex) {
-
-            log.warn("Falha controlada durante aquisição: {}", ex.getReason());
-
-            throw ex;
-
-        }
-        catch (Exception ex) {
-
-            log.error("========== ERRO INTERNO ==========");
-
-            log.error("GoogleBookId: {} | UserId: {}", googleBookId, userId);
-
-            log.error("Exceção: {}", ex.getClass().getName());
-
-            log.error("Mensagem: {}", ex.getMessage());
-            log.error("Causa raiz: {}", rootCauseMessage(ex));
-
-            // Stack trace completo
-            log.error("Stack trace completo da falha:", ex);
-
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao adicionar livro. Verifique os logs.", ex);
+            JsonNode item = restClient.get().uri("/books/{id}/", id).retrieve().body(JsonNode.class);
+            if (item == null || item.isEmpty() || item.path("id").isMissingNode()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Livro não encontrado no catálogo gratuito.");
+            Book book = new Book();
+            book.setGoogleBookId(id);
+            book.setTitle(item.path("title").asText("Título não informado"));
+            JsonNode authors = item.path("authors");
+            if (authors.isArray()) book.setAuthors(StreamSupport.stream(authors.spliterator(), false).map(a -> a.path("name").asText()).collect(Collectors.joining(", ")));
+            JsonNode translators = item.path("translators");
+            book.setDescription(item.path("subjects").isArray() ? StreamSupport.stream(item.path("subjects").spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(" • ")) : "");
+            book.setPublisher("Project Gutenberg");
+            book.setIsbn("");
+            JsonNode formats = item.path("formats");
+            book.setFormatsJson(formats.toString());
+            book.setThumbnail(formats.path("image/jpeg").asText(""));
+            String contentUrl = formats.path("text/plain; charset=utf-8").asText("");
+            if (contentUrl.isBlank()) contentUrl = formats.path("text/plain; charset=us-ascii").asText("");
+            if (contentUrl.isBlank()) contentUrl = formats.path("text/plain").asText("");
+            book.setContentUrl(contentUrl);
+            book.setLanguage(item.path("languages").isArray() && item.path("languages").size() > 0 ? item.path("languages").get(0).asText() : "");
+            book.setSubjects(item.path("subjects").isArray() ? StreamSupport.stream(item.path("subjects").spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(" | ")) : "");
+            book.setDownloadCount(item.path("download_count").asLong(0));
+            return bookRepository.saveAndFlush(book);
+        } catch (RestClientResponseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível obter os dados do livro na Gutendex.", ex);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Falha ao consultar o catálogo Gutendex.", ex);
         }
     }
 
+    public String getFreeText(Long userBookId, Long userId) {
+        User user = findUser(userId);
+        UserBook userBook = findUserBook(userBookId, user);
+        String url = userBook.getBook().getContentUrl();
+        if (url == null || url.isBlank()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "A Gutendex não disponibiliza texto integral em formato compatível para esta obra.");
+        try {
+            return RestClient.create().get().uri(url).retrieve().body(String.class);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar o texto integral do Project Gutenberg.", ex);
+        }
+    }
 
-    // 3. Adicionar livro ao histórico
     @Transactional
     public BookResponseDTO addToHistory(Long userBookId, Long userId) {
-
         User user = findUser(userId);
-
         UserBook userBook = findUserBook(userBookId, user);
-
         userBook.setReadingStatus(ReadingStatus.COMPLETED);
         userBook.setCompletedAt(LocalDateTime.now());
-
-        UserBook saved = userBookRepository.save(userBook);
-
-        return BookResponseDTO.from(saved);
+        return BookResponseDTO.from(userBookRepository.save(userBook));
     }
 
-    // 4. Remover livro da biblioteca
     @Transactional
     public void removeBook(Long userBookId, Long userId) {
-
         User user = findUser(userId);
-
-        UserBook userBook = findUserBook(userBookId, user);
-
-        userBookRepository.delete(userBook);
+        userBookRepository.delete(findUserBook(userBookId, user));
     }
 
-    // 5. Buscar livros novos
-    public JsonNode getNewBooks() {
-
-        try {
-            // A consulta é ampla para montar uma vitrine automaticamente ao abrir a biblioteca.
-            JsonNode response = requestVolumes("subject:fiction", "relevance");
-
-            if (response == null || response.path("items").isMissingNode()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_GATEWAY,
-                        "A Google Books retornou uma resposta sem a lista de livros."
-                );
-            }
-            return response;
-        }
-        catch (RestClientResponseException ex) {
-            throw googleBooksException(ex);
-        }
-        catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Google Books. Verifique a conexão e tente novamente.", ex);
-        }
-    }
-
-    /**
-     * Consulta a coleção pública de volumes da Google Books.
-     * A chave é anexada apenas no servidor; ela nunca é enviada ao navegador.
-     */
-    private JsonNode requestVolumes(String query, String orderBy) {
-        return restClient.get().uri(uriBuilder -> {
-            var builder = uriBuilder.path("/volumes").queryParam("q", query).queryParam("maxResults", 20).queryParam("printType", "books").queryParam("orderBy", orderBy);
-
-            if (hasApiKey()) {
-                builder.queryParam("key", apiKey.trim());
-            }
-
-            return builder.build();
-        }).retrieve().body(JsonNode.class);
-    }
-
-    // Buscar usuário pelo ID autenticado
     private User findUser(Long userId) {
-
         return userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
     }
 
-    // Buscar livro pertencente ao usuário
     private UserBook findUserBook(Long id, User user) {
-
         return userBookRepository.findByIdAndUser(id, user).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Livro não encontrado na sua biblioteca."));
     }
-
-    // Buscar informações na Google Books e salvar no catálogo
-    private Book saveBookFromGoogle(String googleBookId) {
-
-        JsonNode response;
-        try {
-            response = restClient.get().uri(uriBuilder -> {
-                var builder = uriBuilder.path("/volumes/{id}");
-                if (hasApiKey()) {
-                    builder.queryParam("key", apiKey.trim());
-                }
-                return builder.build(googleBookId);}).retrieve().body(JsonNode.class);
-        }
-        catch (RestClientResponseException ex) {
-            throw googleBooksException(ex);
-        }
-        catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível consultar os dados do livro na Google Books.", ex);
-        }
-
-        if (response == null || response.isEmpty() || response.path("volumeInfo").isMissingNode() || response.path("volumeInfo").isEmpty()) {
-
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Livro não encontrado na Google Books.");
-        }
-
-        JsonNode volume = response.path("volumeInfo");
-
-        String title = volume.path("title").asText("");
-
-        if (title.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O livro retornado não possui um título válido.");
-        }
-
-        Book book = new Book();
-
-        book.setGoogleBookId(googleBookId);
-        book.setTitle(title);
-        book.setDescription(volume.path("description").asText(""));
-        book.setPublisher(volume.path("publisher").asText(""));
-
-        // Converter autores em uma String separada por vírgulas
-        JsonNode authors = volume.path("authors");
-
-        if (authors.isArray()) {
-            book.setAuthors(StreamSupport.stream(authors.spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(", ")));
-        }
-
-        // Recuperar ISBN
-        JsonNode identifiers = volume.path("industryIdentifiers");
-
-        if (identifiers.isArray()) {
-            for (JsonNode identifier : identifiers) {
-
-                if (identifier.path("type").asText().startsWith("ISBN")) {
-                    book.setIsbn(identifier.path("identifier").asText());
-                    break;
-                }
-            }
-        }
-
-        // Recuperar capa
-        book.setThumbnail(volume.path("imageLinks").path("thumbnail").asText(""));
-
-        // Executa o INSERT do catálogo imediatamente para detectar problemas de coluna/tamanho.
-        return bookRepository.saveAndFlush(book);
-    }
-
-    // Retorna a mensagem da exceção mais profunda, útil para diagnosticar falhas do PostgreSQL.
-    private String rootCauseMessage(Throwable ex) {
-        Throwable cause = ex;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
-        }
-        return cause.getClass().getName() + ": " + cause.getMessage();
-    }
-
-    private boolean hasApiKey() {
-        return apiKey != null && !apiKey.isBlank();
-    }
-
-    private ResponseStatusException googleBooksException(RestClientResponseException ex) {
-        int status = ex.getStatusCode().value();
-
-        if (status == 429) {
-            return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "A Google Books atingiu o limite de consultas. Aguarde um pouco e tente novamente.", ex);
-        }
-
-        if (status == 403) {
-            return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books recusou a chave. Confira se a Google Books API está ativada e se a chave pertence ao projeto correto.", ex);
-        }
-
-        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Google Books respondeu com HTTP " + status + ". Tente novamente mais tarde.", ex);
-    }
-
-    @Value("${google.books.api.key:}")
-    private String apiKey;
 }

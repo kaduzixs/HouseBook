@@ -3,12 +3,14 @@ spring:
   application:
     name: company
 
-    datasource:
-      url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/postgres?prepareThreshold=0
-      username: ${DB_USERNAME}
-      password: ${DB_PASSWORD}
-      driver-class-name: org.postgresql.Driver
+  # Configuração de conexão com o Supabase
+  datasource:
+    url: jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:6543/postgres?pre pareThreshold=0
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
 
+  # Configurações do Hibernate e JPA
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,15 +18,3 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
-  web:
-    servlet:
-      multipart:
-        # Mantém o limite alinhado ao MAX_TEXT_BYTES do ReadingService (5 MB).
-        max-file-size: 5MB
-        max-request-size: 6MB
-
-google:
-  books:
-    api:
-      key: ${BOOKS_KEY:}
