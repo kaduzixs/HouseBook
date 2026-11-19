@@ -110,40 +110,134 @@ public class BookService {
         return BookResponseDTO.from(userBookRepository.saveAndFlush(userBook));
     }
 
+
     private Book saveBookFromGutendex(String id) {
         try {
-            JsonNode item = restClient.get().uri("/books/{id}/", id).retrieve().body(JsonNode.class);
-            if (item == null || item.isEmpty() || item.path("id").isMissingNode()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Livro não encontrado no catálogo gratuito.");
+            JsonNode item = restClient.get()
+                    .uri("/books/{id}/", id)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (item == null || item.isEmpty() || item.path("id").isMissingNode()) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Livro não encontrado no catálogo gratuito."
+                );
+            }
+
             Book book = new Book();
+
             book.setGoogleBookId(id);
             book.setTitle(item.path("title").asText("Título não informado"));
+
+            // Extrai os autores do livro.
             JsonNode authors = item.path("authors");
-            if (authors.isArray()) book.setAuthors(StreamSupport.stream(authors.spliterator(), false).map(a -> a.path("name").asText()).collect(Collectors.joining(", ")));
-            JsonNode translators = item.path("translators");
-            book.setDescription(item.path("subjects").isArray() ? StreamSupport.stream(item.path("subjects").spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(" • ")) : "");
+
+            if (authors.isArray()) {
+                book.setAuthors(
+                        StreamSupport.stream(authors.spliterator(), false)
+                                .map(a -> a.path("name").asText())
+                                .collect(Collectors.joining(", "))
+                );
+            }
+
+            // Extrai os resumos disponibilizados pela Gutendex.
+            JsonNode summaries = item.path("summaries");
+
+            String summary = summaries.isArray()
+                    ? StreamSupport.stream(summaries.spliterator(), false)
+                    .map(JsonNode::asText)
+                    .filter(value -> !value.isBlank())
+                    .collect(Collectors.joining("\n\n"))
+                    : "";
+
+            // Extrai os assuntos do livro.
+            JsonNode subjectsNode = item.path("subjects");
+
+            String subjects = subjectsNode.isArray()
+                    ? StreamSupport.stream(subjectsNode.spliterator(), false)
+                    .map(JsonNode::asText)
+                    .filter(value -> !value.isBlank())
+                    .collect(Collectors.joining("\n\n"))
+                    : "";
+
+            // Utiliza os assuntos como alternativa caso não exista resumo.
+            book.setDescription(summary.isBlank() ? subjects : summary);
+
             book.setPublisher("Project Gutenberg");
             book.setIsbn("");
+
+            // Salva os formatos disponibilizados pela API.
             JsonNode formats = item.path("formats");
+
             book.setFormatsJson(formats.toString());
+
+            // Obtém a capa do livro.
             book.setThumbnail(formats.path("image/jpeg").asText(""));
+
+            // Procura o formato TXT para disponibilizar a leitura.
             String contentUrl = formats.path("text/plain; charset=utf-8").asText("");
-            if (contentUrl.isBlank()) contentUrl = formats.path("text/plain; charset=us-ascii").asText("");
-            if (contentUrl.isBlank()) contentUrl = formats.path("text/plain").asText("");
+
+            if (contentUrl.isBlank()) {
+                contentUrl = formats.path("text/plain; charset=us-ascii").asText("");
+            }
+
+            if (contentUrl.isBlank()) {
+                contentUrl = formats.path("text/plain").asText("");
+            }
+
             book.setContentUrl(contentUrl);
-            book.setLanguage(item.path("languages").isArray() && item.path("languages").size() > 0 ? item.path("languages").get(0).asText() : "");
-            book.setSubjects(item.path("subjects").isArray() ? StreamSupport.stream(item.path("subjects").spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(" | ")) : "");
+
+            // Obtém o idioma.
+            JsonNode languages = item.path("languages");
+
+            book.setLanguage(
+                    languages.isArray() && !languages.isEmpty()
+                            ? languages.get(0).asText()
+                            : ""
+            );
+
+            // Salva os assuntos separados por barra.
+            book.setSubjects(subjectsNode.isArray()
+                    ? StreamSupport.stream(subjectsNode.spliterator(), false)
+                    .map(JsonNode::asText)
+                    .filter(value -> !value.isBlank())
+                    .collect(Collectors.joining(" | "))
+                    : ""
+            );
+
+            // Salva a quantidade de downloads.
             book.setDownloadCount(item.path("download_count").asLong(0));
+
             return bookRepository.saveAndFlush(book);
-        }
-        catch (RestClientResponseException ex) {
-            log.error("Gutendex respondeu HTTP {} ao buscar o livro {}.", ex.getStatusCode().value(), id, ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível obter os dados do livro na Gutendex.", ex);
-        }
-        catch (RestClientException ex) {
+
+        } catch (RestClientResponseException ex) {
+
+            log.error(
+                    "Gutendex respondeu HTTP {} ao buscar o livro {}.",
+                    ex.getStatusCode().value(),
+                    id,
+                    ex
+            );
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Não foi possível obter os dados do livro na Gutendex.",
+                    ex
+            );
+
+        } catch (RestClientException ex) {
+
             log.error("Falha de conexão ao buscar o livro {} na Gutendex.", id, ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Falha ao consultar o catálogo Gutendex.", ex);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Falha ao consultar o catálogo Gutendex.",
+                    ex
+            );
         }
     }
+
 
     public String getFreeText(Long userBookId, Long userId) {
         User user = findUser(userId);
@@ -151,7 +245,7 @@ public class BookService {
         String url = userBook.getBook().getContentUrl();
         if (url == null || url.isBlank()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "A Gutendex não disponibiliza texto integral em formato compatível para esta obra.");
         try {
-            return RestClient.create().get().uri(url).retrieve().body(String.class);
+            return restClient.get().uri(url).retrieve().body(String.class);
         }
         catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar o texto integral do Project Gutenberg.", ex);

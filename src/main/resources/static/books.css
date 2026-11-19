@@ -116,3 +116,36 @@ html[data-theme=ember]{--bg:#241810;--surface:#38251a;--surface2:#4b3020;--surfa
     .search-filters{grid-template-columns:1fr}
     .filter-control:last-child{grid-column:auto}
 }
+
+/* Refinamentos da biblioteca e das capas recebidas pela Gutendex */
+.cover-image-shell{display:grid;place-items:center;width:100%;height:100%;min-height:0}
+.cover-image-shell .book-cover{display:block;max-width:100%;height:205px;object-fit:contain}
+.cover-fallback{display:grid;place-items:center;width:100%;height:100%}
+.cover-fallback[hidden]{display:none!important}
+.book-cover[hidden]{display:none!important}
+.dialog-book .cover-image-shell{width:140px;height:210px;align-self:start}
+.dialog-book .cover-image-shell .book-cover{height:210px;max-width:140px}
+.dialog-book .cover-image-shell .cover-placeholder{width:140px;height:200px}
+.book-action:disabled{opacity:.58;cursor:not-allowed;transform:none}
+.reader-dialog{overflow:hidden}
+.reader-toolbar{flex-shrink:0}
+.reader-page{min-width:0;scroll-behavior:smooth}
+.reader-content{line-height:1.95;letter-spacing:.01em;white-space:pre-wrap;overflow-wrap:anywhere}
+.reader-content::selection{background:#c6a76b;color:#172319}
+.reader-sidebar ol{display:grid;gap:4px}
+.reader-sidebar li{padding:0}
+.reader-sidebar button{width:100%;padding:9px 10px;border-radius:7px;line-height:1.35}
+.reader-sidebar button:hover,.reader-sidebar button.active{background:rgba(198,167,107,.12)}
+.reader-empty{width:100%;box-sizing:border-box}
+.reader-empty h2{font:600 1.35rem 'Playfair Display',serif}
+.reader-empty form{align-items:center}
+.reader-empty input{max-width:100%;color:inherit}
+.reader-pagination button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:700px){
+    .reader-dialog{width:100vw;height:100dvh;max-width:none;max-height:100dvh;border-radius:0}
+    .reader-layout{height:calc(100% - 62px)}
+    .reader-sidebar ol{display:flex;gap:8px;overflow:auto;white-space:nowrap}
+    .reader-sidebar button{width:auto}
+    .reader-page{min-height:0}
+    .reader-pagination{position:sticky;bottom:-22px;padding:14px 0 8px;background:inherit}
+}

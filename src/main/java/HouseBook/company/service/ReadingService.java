@@ -31,6 +31,19 @@ public class ReadingService {
     private final UserBookRepository userBookRepository;
     private final UserRepository userRepository;
 
+    // Marca a primeira abertura do leitor como início da leitura, inclusive para TXT remoto.
+    @Transactional
+    public void startReading(Long userBookId, Long userId) {
+        UserBook userBook = ownedBook(userBookId, userId);
+        if (userBook.getReadingStatus() != ReadingStatus.COMPLETED) {
+            userBook.setReadingStatus(ReadingStatus.READING);
+        }
+        if (userBook.getStartedAt() == null) {
+            userBook.setStartedAt(LocalDateTime.now());
+        }
+        userBookRepository.save(userBook);
+    }
+
     @Transactional(readOnly = true)
     public List<ChapterResponseDTO> getChapters(Long userBookId, Long userId) {
         UserBook userBook = ownedBook(userBookId, userId);

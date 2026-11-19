@@ -27,6 +27,13 @@ public class ReadingController {
         return id;
     }
 
+    // Registra que o usuário começou a ler a obra.
+    @PostMapping("/{userBookId}/start")
+    public ResponseEntity<Void> start(@PathVariable Long userBookId, Authentication auth) {
+        readingService.startReading(userBookId, userId(auth));
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{userBookId}/chapters")
     public ResponseEntity<List<ChapterResponseDTO>> chapters(@PathVariable Long userBookId, Authentication auth) {
         return ResponseEntity.ok(readingService.getChapters(userBookId, userId(auth)));
