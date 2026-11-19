@@ -37,16 +37,39 @@ public class BookService {
     }
 
     public JsonNode searchBooks(String query, String language, String topic, String mimeType) {
-        if (query == null || query.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe título, autor ou assunto.");
-        try {
-            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParam("page_size", 32).queryParamIfPresent("languages", java.util.Optional.ofNullable(language).filter(v -> !v.isBlank())).queryParamIfPresent("topic", java.util.Optional.ofNullable(topic).filter(v -> !v.isBlank())).queryParamIfPresent("mime_type", java.util.Optional.ofNullable(mimeType).filter(v -> !v.isBlank())).build()).retrieve().body(JsonNode.class);
-            if (response == null || !response.path("results").isArray()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
-            return response;
-        } catch (RestClientResponseException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
-        } catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex.", ex);
+        if (query == null || query.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe título, autor ou assunto.");
         }
+
+        try {
+            JsonNode response = fetchSearch(query, null, null);
+            if (response.path("results").isArray() && ((language != null && !language.isBlank()) || (topic != null && !topic.isBlank()) || (mimeType != null && !mimeType.isBlank()))) {
+                var filtered = new tools.jackson.databind.node.ArrayNode(tools.jackson.databind.node.JsonNodeFactory.instance);
+                for (JsonNode book : response.path("results")) {
+                    boolean languageMatch = language == null || language.isBlank() || StreamSupport.stream(book.path("languages").spliterator(), false).anyMatch(value -> value.asText().equalsIgnoreCase(language));
+                    boolean topicMatch = topic == null || topic.isBlank() || StreamSupport.stream(book.path("subjects").spliterator(), false).anyMatch(value -> value.asText().toLowerCase().contains(topic.toLowerCase()));
+                    boolean formatMatch = mimeType == null || mimeType.isBlank() || StreamSupport.stream(book.path("formats").properties().spliterator(), false).anyMatch(entry -> entry.getKey().toLowerCase().startsWith(mimeType.toLowerCase()));
+                    if (languageMatch && topicMatch && formatMatch) filtered.add(book);
+                }
+                ((tools.jackson.databind.node.ObjectNode) response).set("results", filtered);
+            }
+            return response;
+        }
+        catch (RestClientResponseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
+        }
+        catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex. Verifique a conexão do servidor.", ex);
+        }
+    }
+
+    private JsonNode fetchSearch(String query, String language, String topic) {
+        JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParam("page_size", 32).queryParamIfPresent("languages", java.util.Optional.ofNullable(language).filter(v -> !v.isBlank())).queryParamIfPresent("topic", java.util.Optional.ofNullable(topic).filter(v -> !v.isBlank())).build()).retrieve().body(JsonNode.class);
+
+        if (response == null || !response.path("results").isArray()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
+        }
+        return response;
     }
 
     public JsonNode getNewBooks() {
@@ -54,9 +77,11 @@ public class BookService {
             JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").queryParam("page_size", 32).build()).retrieve().body(JsonNode.class);
             if (response == null || !response.path("results").isArray()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
             return response;
-        } catch (RestClientResponseException ex) {
+        }
+        catch (RestClientResponseException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ".", ex);
-        } catch (RestClientException ex) {
+        }
+        catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível conectar à Gutendex.", ex);
         }
     }
@@ -99,9 +124,11 @@ public class BookService {
             book.setSubjects(item.path("subjects").isArray() ? StreamSupport.stream(item.path("subjects").spliterator(), false).map(JsonNode::asText).collect(Collectors.joining(" | ")) : "");
             book.setDownloadCount(item.path("download_count").asLong(0));
             return bookRepository.saveAndFlush(book);
-        } catch (RestClientResponseException ex) {
+        }
+        catch (RestClientResponseException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível obter os dados do livro na Gutendex.", ex);
-        } catch (RestClientException ex) {
+        }
+        catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Falha ao consultar o catálogo Gutendex.", ex);
         }
     }
@@ -113,7 +140,8 @@ public class BookService {
         if (url == null || url.isBlank()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "A Gutendex não disponibiliza texto integral em formato compatível para esta obra.");
         try {
             return RestClient.create().get().uri(url).retrieve().body(String.class);
-        } catch (RestClientException ex) {
+        }
+        catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar o texto integral do Project Gutenberg.", ex);
         }
     }

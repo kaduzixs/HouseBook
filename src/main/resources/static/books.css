@@ -13,4 +13,106 @@ html[data-theme=ember]{--bg:#241810;--surface:#38251a;--surface2:#4b3020;--surfa
 @media(max-width:1050px){.topbar{flex-wrap:wrap}.main-nav{order:3;width:100%;justify-content:center}.global-search{width:230px}.hero-section{min-height:270px}}@media(max-width:720px){.topbar{gap:12px;padding:12px 5%}.main-nav{overflow:auto;justify-content:flex-start}.nav-link{white-space:nowrap}.profile-trigger-copy{display:none}.global-search{width:min(220px,42vw)}.hero-section{grid-template-columns:1fr;padding:40px 0 20px}.hero-art{height:150px}.orb{width:140px;height:140px}.hero-book{width:75px;height:110px}.stats-grid{gap:9px;margin-bottom:42px}.stat-card{gap:9px;padding:13px 10px}.stat-icon{width:37px;height:37px}.stat-card strong{font-size:1.35rem}.stat-card small{font-size:.58rem}.toolbar{align-items:stretch;flex-direction:column}.small-search{min-width:0}.book-grid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px}.book-cover-wrap{height:195px}.book-cover{height:175px}.section-heading h2{font-size:1.7rem}}@media(max-width:460px){.brand{font-size:1.25rem}.topbar-tools{gap:6px}.global-search{width:38vw}.global-search input{font-size:.68rem}.tool-button{width:34px;height:34px}.hero-copy h1{font-size:2.25rem}.stats-grid{grid-template-columns:1fr}.stat-card{padding:12px 16px}.stat-card small{font-size:.68rem}.section-heading{align-items:flex-start;flex-direction:column}.search-form{gap:7px;padding-left:10px}.search-form button{padding:10px}.dialog-book{grid-template-columns:1fr}.dialog-book>img{margin:auto}.footer{font-size:.5rem;letter-spacing:1px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 /* Leitor digital HouseBook */
 .reader-dialog{width:min(1180px,96vw);height:min(92vh,950px);max-width:none;max-height:94vh;padding:0;border:1px solid var(--border);border-radius:16px;color:var(--text);background:#142219;box-shadow:0 25px 90px #0009}.reader-dialog::backdrop{background:#030805dc;backdrop-filter:blur(7px)}.reader-toolbar{height:62px;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:0 22px;border-bottom:1px solid var(--border);color:var(--gold);font-family:'Playfair Display',serif}.reader-tool,.reader-controls button,.reader-controls select{padding:9px 13px;border:1px solid var(--border);border-radius:7px;color:var(--text);background:#203528;cursor:pointer}.reader-layout{display:grid;grid-template-columns:230px 1fr;height:calc(100% - 62px);min-height:0}.reader-sidebar{overflow:auto;padding:25px 18px;border-right:1px solid var(--border);background:#102017}.reader-sidebar h2{font:600 1.1rem 'Playfair Display',serif;color:var(--gold)}.reader-sidebar ol{padding-left:22px;color:var(--muted)}.reader-sidebar li{padding:8px 0}.reader-sidebar button{border:0;color:inherit;background:none;text-align:left;cursor:pointer}.reader-sidebar button.active{color:var(--gold);font-weight:700}.reader-page{--reader-size:19px;display:flex;flex-direction:column;overflow:auto;padding:clamp(22px,5vw,65px);background:#f4eddd;color:#433a2d}.reader-page h1{margin:8px 0 22px;font:600 clamp(1.8rem,4vw,2.6rem) 'Playfair Display',serif}.reader-page .eyebrow{color:#92784d}.reader-controls{display:flex;gap:8px;justify-content:flex-end;margin-bottom:22px}.reader-controls button,.reader-controls select{color:#514637;border-color:#d2c5ac;background:#e9dfcb}.reader-content{flex:1;font:var(--reader-size)/1.9 Georgia,serif;white-space:pre-wrap;overflow-wrap:anywhere;max-width:760px;width:100%;margin:0 auto}.reader-content p{margin:0 0 1.25em}.reader-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:35px;padding-top:20px;border-top:1px solid #d4c8b3;color:#77694f}.reader-pagination .reader-tool{color:#514637;border-color:#d2c5ac;background:#e9dfcb}.reader-empty{margin:auto;padding:28px;border:1px dashed #b8a987;border-radius:12px;max-width:620px;text-align:center}.reader-empty p{line-height:1.7}.reader-empty form{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:20px}.reader-page[data-theme="sepia"]{background:#e6d4b4;color:#493923}.reader-page[data-theme="night"]{background:#1d2521;color:#e4dfd2}.reader-page[data-theme="night"] .reader-controls button,.reader-page[data-theme="night"] .reader-controls select,.reader-page[data-theme="night"] .reader-pagination .reader-tool{color:#e4dfd2;border-color:#59665b;background:#303b34}.reader-page[data-theme="night"] .reader-pagination{border-color:#59665b}.reader-page[data-theme="night"] .reader-empty{border-color:#59665b}.reader-page[data-theme="night"] .eyebrow{color:#c8b17f}
-@media(max-width:700px){.reader-layout{grid-template-columns:1fr}.reader-sidebar{max-height:115px;border-right:0;border-bottom:1px solid var(--border);padding:10px 16px}.reader-sidebar h2{margin:0 0 5px}.reader-sidebar ol{display:flex;gap:18px;overflow:auto;white-space:nowrap;margin:0}.reader-sidebar li{padding:4px 0}.reader-page{padding:22px 18px}.reader-toolbar{padding:0 12px}.reader-toolbar>span{font-size:.85rem}.reader-pagination{font-size:.75rem}}
+@media(max-width:700px){.reader-layout{grid-template-columns:1fr}.reader-sidebar{max-height:115px;border-right:0;border-bottom:1px solid var(--border);padding:10px 16px}.reader-sidebar h2{margin:0 0 5px}.reader-sidebar ol{display:flex;gap:18px;overflow:auto;white-space:nowrap;margin:0}.reader-sidebar li{padding:4px 0}.reader-page{padding:22px 18px}.reader-toolbar{padding:0 12px}.reader-toolbar>span{font-size:.85rem}.reader-pagination{font-size:.75rem}}\n.search-form select{max-width:150px;padding:9px;border:1px solid var(--border);border-radius:7px;color:var(--text);background:var(--surface);font-size:.75rem}.book-meta{margin:0 0 12px;color:var(--muted);font-size:.65rem;line-height:1.5}\n@media(max-width:720px){.search-form{flex-wrap:wrap}.search-form input{flex-basis:100%}.search-form select{flex:1;max-width:none}}\n
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               /* Busca e filtros Gutendex */
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           .search-form{
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               display:grid;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               grid-template-columns:1fr;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               gap:13px;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               padding:13px;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               border:1px solid var(--border);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               border-radius:15px;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               background:linear-gradient(145deg,rgba(34,57,42,.88),rgba(16,29,22,.96));
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               box-shadow:0 12px 30px rgba(0,0,0,.14);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           }
+.search-main{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+    padding:5px 5px 5px 12px;
+    border:1px solid rgba(198,167,107,.22);
+    border-radius:11px;
+    background:rgba(0,0,0,.18);
+    color:var(--gold);
+}
+.search-main>span{font-size:1.35rem;line-height:1}
+.search-main input{
+    flex:1;
+    min-width:0;
+    padding:12px 0;
+    border:0;
+    outline:0;
+    color:var(--text);
+    background:transparent;
+    font-size:.9rem;
+}
+.search-main button{
+    flex:0 0 auto;
+    padding:12px 17px;
+    border:0;
+    border-radius:8px;
+    color:#172319;
+    background:var(--primary);
+    font-size:.82rem;
+    font-weight:700;
+    transition:filter .2s,transform .2s;
+}
+.search-main button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.search-filters{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:11px;
+}
+.filter-control{
+    display:grid;
+    gap:6px;
+    min-width:0;
+    color:var(--muted);
+    font-size:.7rem;
+    font-weight:700;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+}
+.filter-control select,.filter-control input{
+    width:100%;
+    min-width:0;
+    height:42px;
+    padding:0 34px 0 12px;
+    border:1px solid rgba(198,167,107,.22);
+    border-radius:9px;
+    outline:none;
+    color:var(--text);
+    background-color:#1b3023;
+    font:500 .78rem 'DM Sans',sans-serif;
+    letter-spacing:normal;
+    text-transform:none;
+    transition:border-color .2s,box-shadow .2s,background .2s;
+}
+.filter-control select{
+    appearance:none;
+    -webkit-appearance:none;
+    cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c6a76b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+}
+.filter-control input::placeholder{color:#899384}
+.filter-control select:focus,.filter-control input:focus{
+    border-color:var(--gold);
+    box-shadow:0 0 0 3px rgba(198,167,107,.12);
+    background-color:#203829;
+}
+.filter-control option{color:var(--text);background:#1b3023}
+@media(max-width:720px){
+    .search-filters{grid-template-columns:1fr 1fr}
+    .filter-control:last-child{grid-column:1/-1}
+}
+@media(max-width:480px){
+    .search-main{flex-wrap:wrap}
+    .search-main input{flex-basis:calc(100% - 45px)}
+    .search-main button{width:100%}
+    .search-filters{grid-template-columns:1fr}
+    .filter-control:last-child{grid-column:auto}
+}
