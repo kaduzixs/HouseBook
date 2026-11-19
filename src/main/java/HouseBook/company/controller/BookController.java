@@ -38,15 +38,15 @@ public class BookController {
         return ResponseEntity.ok(bookService.getUserBooks(getAuthenticatedUserId(authentication)));
     }
 
-    // 1. Pesquisar livros na Google Books
+    // 1. Pesquisar livros na Gutendex / Project Gutenberg
     @GetMapping("/search")
-    public ResponseEntity<JsonNode> searchBooks(@RequestParam("q") String q) {
+    public ResponseEntity<JsonNode> searchBooks(@RequestParam("q") String q, @RequestParam(value = "language", required = false) String language, @RequestParam(value = "topic", required = false) String topic, @RequestParam(value = "mimeType", required = false) String mimeType) {
 
         if (q == null || q.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o nome do livro.");
         }
 
-        return ResponseEntity.ok(bookService.searchBooks(q));
+        return ResponseEntity.ok(bookService.searchBooks(q, language, topic, mimeType));
     }
 
     // 2. Adquirir livro e adicionar à biblioteca
@@ -60,6 +60,13 @@ public class BookController {
         BookResponseDTO response = bookService.acquireBook(googleBookId, getAuthenticatedUserId(authentication));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+
+    @GetMapping("/content/{userBookId}")
+    public ResponseEntity<String> getFreeContent(@PathVariable Long userBookId, Authentication authentication) {
+        return ResponseEntity.ok().header("Content-Type", "text/plain; charset=UTF-8")
+                .body(bookService.getFreeText(userBookId, getAuthenticatedUserId(authentication)));
     }
 
     // 3. Adicionar livro ao histórico
@@ -91,4 +98,4 @@ public class BookController {
 
 
 
-    }
+}
