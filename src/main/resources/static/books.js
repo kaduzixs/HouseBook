@@ -1,321 +1,1185 @@
 'use strict';
+
 (() => {
-    const API='/api/books', $=s=>document.querySelector(s);
-    const state={library:[],discoveries:[],filter:'all',libraryQuery:'',csrf:null,csrfHeader:null,profilePhotoFile:null,reader:{userBookId:null,chapters:[],index:0,font:19,remote:false}};
-    const libraryGrid=$('#library-grid'),discoverGrid=$('#discover-grid'),historyGrid=$('#history-grid'),feedback=$('#page-feedback'),bookDialog=$('#book-dialog');
-    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-    function msg(text,type=''){feedback.textContent=text;feedback.className=`page-feedback ${type}`}
-    async function ensureCsrf(){if(state.csrf)return;try{const r=await fetch('/user/csrf',{credentials:'same-origin',headers:{Accept:'application/json'}});if(r.ok){const d=await r.json();state.csrf=d.token;state.csrfHeader=d.headerName||'X-CSRF-TOKEN'}}catch(e){console.warn('Não foi possível obter o token CSRF.',e)}}
-    async function request(url,options={}){const method=(options.method||'GET').toUpperCase();const headers=new Headers(options.headers||{});headers.set('Accept','application/json');if(!['GET','HEAD','OPTIONS'].includes(method)){await ensureCsrf();if(state.csrf&&state.csrfHeader)headers.set(state.csrfHeader,state.csrf)}const response=await fetch(url,{credentials:'same-origin',...options,headers});if(!response.ok){let message=`Falha na operação (${response.status}).`;try{const ct=response.headers.get('content-type')||'';if(ct.includes('json')){const d=await response.json();message=d.detail||d.message||d.error||message}else{const t=await response.text();if(t)message=t}}catch{}if(response.status===401)throw new Error('Sua sessão expirou. Entre novamente.');throw new Error(response.status===403?'A solicitação foi bloqueada pela proteção CSRF. Atualize a página e tente novamente.':message)}if(response.status===204)return null;const ct=response.headers.get('content-type')||'';return ct.includes('json')?response.json():response.text()}
-    // Converte o formato da Gutendex para o formato usado pelos cards e pelo leitor.
-    function normalizeGoogle(item){
-        const authors=Array.isArray(item.authors)?item.authors.map(a=>a.name).filter(Boolean).join(', '):'Autor desconhecido';
-        const subjects=Array.isArray(item.subjects)?item.subjects.join(' • '):'';
-        const summaries=Array.isArray(item.summaries)?item.summaries.join(' '):'';
-        const formats=item.formats||{};
-        const textUrl=formats['text/plain; charset=utf-8']||formats['text/plain; charset=us-ascii']||formats['text/plain']||'';
-        return{
-            googleBookId:String(item.id),
-            title:item.title||'Título não informado',
-            authors:authors||'Autor desconhecido',
-            description:summaries||subjects||'Obra gratuita do catálogo Project Gutenberg.',
-            publisher:'Project Gutenberg',
-            thumbnail:formats['image/jpeg']||'',
-            isbn:'',
-            language:Array.isArray(item.languages)?item.languages.join(', '):'',
-            subjects,
-            downloadCount:item.download_count||0,
-            contentAvailable:Boolean(textUrl),
-            contentUrl:textUrl,
-            formats
+    const API = '/api/books';
+    const READER_API = '/api/reader';
+    const PROGRESS_DELAY_MS = 1200;
+
+    const $ = selector => document.querySelector(selector);
+
+    const state = {
+        library: [],
+        discoveries: [],
+        filter: 'all',
+        libraryQuery: '',
+        csrf: null,
+        csrfHeader: null,
+        profilePhotoFile: null,
+    };
+
+    const reader = {
+        userBookId: null,
+        book: null,
+        chapters: [],
+        index: 0,
+        cache: new Map(),
+        token: 0,
+        font: 19,
+        lastSaved: '',
+        pending: null,
+        saveTimer: null,
+        scrollQueued: false,
+    };
+
+    const libraryGrid = $('#library-grid');
+    const historyGrid = $('#history-grid');
+    const feedback = $('#page-feedback');
+    const bookDialog = $('#book-dialog');
+    const readerDialog = $('#reader-dialog');
+    const readerPage = $('#reader-page');
+    const readerContent = $('#reader-content');
+
+    // ------------------------------------------------------------------ utilidades
+
+    const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ESCAPES[char]);
+
+    let feedbackTimer = null;
+
+    function msg(text, type = '') {
+        clearTimeout(feedbackTimer);
+        feedback.textContent = text;
+        feedback.className = `page-feedback ${type}`.trim();
+        if (!text) {
+            return;
+        }
+        feedback.classList.add('visible');
+        feedbackTimer = setTimeout(() => feedback.classList.remove('visible'), type === 'error' ? 7000 : 4500);
+    }
+
+    async function ensureCsrf() {
+        if (state.csrf) {
+            return;
+        }
+        try {
+            const response = await fetch('/user/csrf', {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                state.csrf = data.token;
+                state.csrfHeader = data.headerName || 'X-CSRF-TOKEN';
+            }
+        } catch (error) {
+            console.warn('Não foi possível obter o token CSRF.', error);
+        }
+    }
+
+    const FRIENDLY_STATUS = {
+        401: 'Sua sessão expirou. Entre novamente.',
+        403: 'A solicitação foi bloqueada pela proteção CSRF. Atualize a página e tente novamente.',
+        404: 'Não encontramos o que você pediu.',
+        409: 'Esta ação já foi realizada.',
+        413: 'O arquivo é maior que o limite permitido.',
+        502: 'O serviço externo não respondeu. Tente novamente em instantes.',
+    };
+
+    async function request(url, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        const headers = new Headers(options.headers || {});
+        headers.set('Accept', 'application/json');
+
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+            await ensureCsrf();
+            if (state.csrf && state.csrfHeader) {
+                headers.set(state.csrfHeader, state.csrf);
+            }
+        }
+
+        const response = await fetch(url, { credentials: 'same-origin', ...options, headers });
+
+        if (!response.ok) {
+            let message = FRIENDLY_STATUS[response.status] || `Falha na operação (${response.status}).`;
+            try {
+                const type = response.headers.get('content-type') || '';
+                if (type.includes('json')) {
+                    const data = await response.json();
+                    message = data.message || data.detail || message;
+                } else {
+                    const text = await response.text();
+                    if (text) {
+                        message = text;
+                    }
+                }
+            } catch {
+                // mantém a mensagem padrão
+            }
+            if (response.status === 401) {
+                throw new Error(FRIENDLY_STATUS[401]);
+            }
+            if (response.status === 403) {
+                throw new Error(FRIENDLY_STATUS[403]);
+            }
+            throw new Error(message);
+        }
+
+        if (response.status === 204) {
+            return null;
+        }
+        const type = response.headers.get('content-type') || '';
+        return type.includes('json') ? response.json() : response.text();
+    }
+
+    // ------------------------------------------------------------ normalização
+
+    // O Gutenberg cadastra autores como "Austen, Jane"; exibimos "Jane Austen".
+    function displayName(name) {
+        const parts = String(name || '').split(',');
+        return parts.length === 2 ? `${parts[1].trim()} ${parts[0].trim()}`.trim() : String(name || '').trim();
+    }
+
+    // Item cru da Gutendex (resultado de busca) -> formato usado pelos cartões.
+    function normalizeCatalogItem(item) {
+        const formats = item.formats || {};
+        const subjects = Array.isArray(item.subjects) ? item.subjects : [];
+        return {
+            googleBookId: String(item.id),
+            title: item.title || 'Título não informado',
+            authors: Array.isArray(item.authors) && item.authors.length
+                ? item.authors.map(author => displayName(author.name)).join(', ')
+                : 'Autor desconhecido',
+            description: subjects.join(' • ') || 'Obra gratuita do catálogo Project Gutenberg.',
+            publisher: 'Project Gutenberg',
+            // A Gutendex entrega a capa em formats["image/jpeg"]; sem ela usamos o endereço padrão do Gutenberg.
+            thumbnail: formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${item.id}/pg${item.id}.cover.medium.jpg`,
+            language: Array.isArray(item.languages) ? item.languages.join(', ') : '',
+            subjects: subjects.join(' | '),
+            downloadCount: item.download_count || 0,
+            contentAvailable: Boolean(formats['text/plain; charset=utf-8'] || formats['text/plain; charset=us-ascii'] || formats['text/plain']),
+            formats,
         };
     }
-    function normalizeBook(b){return{userBookId:b.userBookId,bookId:b.bookId,googleBookId:b.googleBookId,title:b.title||'Título não informado',authors:b.authors||'Autor desconhecido',description:b.description||'Descrição não disponível.',publisher:b.publisher||'',thumbnail:(b.thumbnail||''),language:b.language||'',subjects:b.subjects||'',downloadCount:b.downloadCount||0,contentAvailable:!!b.contentAvailable,formats:(()=>{try{return b.formatsJson?JSON.parse(b.formatsJson):{}}catch{return {}}})(),readingStatus:b.readingStatus||'NAO_INICIADO',personalRating:b.personalRating,currentChapter:b.currentChapter,currentParagraph:b.currentParagraph}}
-    function googleItems(d){return Array.isArray(d?.results)?d.results.map(normalizeGoogle):[]}
-    const statusLabel=s=>({WANT_TO_READ:'Quero ler',READING:'Em andamento',COMPLETED:'Concluído',PAUSED:'Pausado',NAO_INICIADO:'Não iniciado',EM_ANDAMENTO:'Em andamento',LIDO:'Concluído'}[s]||'Na biblioteca');
-    // Mostra a capa da Gutendex e mantém uma capa tipográfica como fallback.
-    function cover(b){
-        const fallback=`<div class="cover-placeholder"><span>✧</span><strong>${esc(b.title)}</strong></div>`;
-        if(!b.thumbnail) return fallback;
-        return `<div class="cover-image-shell"><img class="book-cover" src="${esc(b.thumbnail)}" alt="Capa de ${esc(b.title)}" loading="lazy" referrerpolicy="no-referrer"><div class="cover-fallback" hidden>${fallback}</div></div>`;
-    }
-    function card(b, mode) {
-        const owned = mode !== 'discover';
 
-        const alreadyAdded = state.library.some(
-            book => book.googleBookId === b.googleBookId
-        );
+    const LEGACY_STATUS = { NAO_INICIADO: 'WANT_TO_READ', EM_ANDAMENTO: 'READING', LIDO: 'COMPLETED' };
 
-        let actions = '';
-
-        if (mode === 'discover') {
-            actions = alreadyAdded
-                ? `<button class="book-action" disabled>
-                   ✓ Já adicionado
-               </button>`
-                : `<button class="book-action"
-                       data-action="add"
-                       data-id="${esc(b.googleBookId)}">
-                   ＋ Adicionar
-               </button>`;
-        } else {
-            actions += `
-            <button class="book-action"
-                    data-action="open-reader"
-                    data-id="${esc(b.userBookId)}">
-                📖 Ler agora
-            </button>`;
-
-            if (b.readingStatus !== 'COMPLETED') {
-                actions += `
-                <button class="book-action"
-                        data-action="read"
-                        data-id="${esc(b.userBookId)}">
-                    ✓ Concluir
-                </button>`;
-            }
-
-            actions += `
-            <button class="book-action danger"
-                    data-action="remove"
-                    data-id="${esc(b.userBookId)}">
-                Remover
-            </button>`;
+    function parseFormats(json) {
+        try {
+            return json ? JSON.parse(json) : {};
+        } catch {
+            return {};
         }
+    }
+
+    // Livro da biblioteca (BookResponseDTO) -> formato usado pelos cartões.
+    function normalizeBook(book) {
+        const status = book.readingStatus || 'WANT_TO_READ';
+        return {
+            userBookId: book.userBookId,
+            bookId: book.bookId,
+            googleBookId: book.googleBookId,
+            title: book.title || 'Título não informado',
+            authors: book.authors || 'Autor desconhecido',
+            description: book.description || 'Descrição não disponível.',
+            publisher: book.publisher || '',
+            thumbnail: book.thumbnail || '',
+            language: book.language || '',
+            subjects: book.subjects || '',
+            downloadCount: book.downloadCount || 0,
+            contentAvailable: Boolean(book.contentAvailable),
+            formats: parseFormats(book.formatsJson),
+            readingStatus: LEGACY_STATUS[status] || status,
+            personalRating: book.personalRating,
+            currentChapter: book.currentChapter,
+            currentParagraph: book.currentParagraph,
+        };
+    }
+
+    const STATUS_LABELS = {
+        WANT_TO_READ: 'Quero ler',
+        READING: 'Em andamento',
+        COMPLETED: 'Concluído',
+        PAUSED: 'Pausado',
+    };
+    const statusLabel = status => STATUS_LABELS[status] || 'Na biblioteca';
+
+    // ------------------------------------------------------------------- capas
+
+    function coverPlaceholder(title) {
+        const box = document.createElement('div');
+        box.className = 'cover-placeholder';
+        const mark = document.createElement('span');
+        mark.textContent = '✧';
+        const name = document.createElement('strong');
+        name.textContent = title;
+        box.append(mark, name);
+        return box;
+    }
+
+    function coverMarkup(book) {
+        if (!book.thumbnail) {
+            return `<div class="cover-placeholder"><span>✧</span><strong>${esc(book.title)}</strong></div>`;
+        }
+        return `<img class="book-cover" src="${esc(book.thumbnail)}" alt="Capa de ${esc(book.title)}" `
+            + `data-title="${esc(book.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+    }
+
+    // Se a imagem não carregar (404, bloqueio de rede...), troca por uma capa estilizada com o título.
+    document.addEventListener('error', event => {
+        const image = event.target;
+        if (image instanceof HTMLImageElement && image.classList.contains('book-cover')) {
+            image.replaceWith(coverPlaceholder(image.dataset.title || ''));
+        }
+    }, true);
+
+    // ----------------------------------------------------------------- cartões
+
+    function libraryEntryFor(book) {
+        return state.library.find(item => item.googleBookId === book.googleBookId);
+    }
+
+    function actionButton(label, attributes, extraClass = '') {
+        const attrs = Object.entries(attributes)
+            .map(([name, value]) => `${name}="${esc(value)}"`)
+            .join(' ');
+        return `<button class="book-action ${extraClass}" type="button" ${attrs}>${label}</button>`;
+    }
+
+    function discoverActions(book) {
+        const owned = libraryEntryFor(book);
+        if (!owned) {
+            return actionButton('＋ Adicionar', { 'data-action': 'add', 'data-id': book.googleBookId }, 'primary');
+        }
+        return actionButton('📖 Ler agora', { 'data-action': 'open-reader', 'data-id': owned.userBookId }, 'primary');
+    }
+
+    function libraryActions(book) {
+        const started = book.readingStatus === 'READING' || book.readingStatus === 'COMPLETED';
+        let html = actionButton(
+            started ? '📖 Continuar' : '📖 Ler agora',
+            { 'data-action': 'open-reader', 'data-id': book.userBookId },
+            'primary',
+        );
+        if (book.readingStatus !== 'COMPLETED') {
+            html += actionButton('✓ Concluir', { 'data-action': 'read', 'data-id': book.userBookId });
+        }
+        html += actionButton('Remover', { 'data-action': 'remove', 'data-id': book.userBookId }, 'danger');
+        return html;
+    }
+
+    function progressNote(book) {
+        if (book.readingStatus === 'READING' && book.currentChapter) {
+            return `<p class="book-meta">Parou no capítulo ${esc(book.currentChapter)}</p>`;
+        }
+        return '<p class="book-meta"></p>';
+    }
+
+    function card(book, mode) {
+        const owned = mode !== 'discover';
+        const detailsId = owned ? book.userBookId : book.googleBookId;
+        const status = owned ? `<span class="book-status">${esc(statusLabel(book.readingStatus))}</span>` : '';
+        const actions = owned ? libraryActions(book) : discoverActions(book);
 
         return `
-        <article class="book-card">
-            <div class="book-cover-wrap"
-                 data-action="details"
-                 data-id="${esc(owned ? b.userBookId : b.googleBookId)}"
-                 data-mode="${mode}">
-                ${cover(b)}
-                ${owned ? `
-                    <span class="book-status">
-                        ${esc(statusLabel(b.readingStatus))}
-                    </span>` : ''}
-            </div>
-
-            <div class="book-info">
-                <h3 class="book-title">${esc(b.title)}</h3>
-                <p class="book-author">${esc(b.authors)}</p>
-                <div class="book-actions">${actions}</div>
-            </div>
-        </article>
-    `;
+            <article class="book-card">
+                <div class="book-cover-wrap" data-action="details" data-id="${esc(detailsId)}" data-mode="${mode}">
+                    ${coverMarkup(book)}
+                    ${status}
+                </div>
+                <div class="book-info">
+                    <h3 class="book-title">${esc(book.title)}</h3>
+                    <p class="book-author">${esc(book.authors)}</p>
+                    ${owned ? progressNote(book) : ''}
+                    <div class="book-actions">${actions}</div>
+                </div>
+            </article>`;
     }
+
+    // ------------------------------------------------------------- renderização
+
     function updateStats() {
+        const count = status => state.library.filter(book => book.readingStatus === status).length;
         $('#total-books').textContent = state.library.length;
-
-        $('#reading-books').textContent =
-            state.library.filter(
-                b => b.readingStatus === 'READING'
-            ).length;
-
-        $('#finished-books').textContent =
-            state.library.filter(
-                b => b.readingStatus === 'COMPLETED'
-            ).length;
+        $('#reading-books').textContent = count('READING');
+        $('#finished-books').textContent = count('COMPLETED');
     }
-    function renderLibrary(){const q=state.libraryQuery.toLocaleLowerCase('pt-BR');const list=state.library.filter(b=>(state.filter==='all'||b.readingStatus===state.filter)&&(!q||b.title.toLocaleLowerCase('pt-BR').includes(q)||b.authors.toLocaleLowerCase('pt-BR').includes(q)));libraryGrid.innerHTML=list.map(b=>card(b,'library')).join('');$('#library-empty').hidden=list.length>0;updateStats()}
-    function renderDiscoveries(emptyTitle='Nenhum livro encontrado.',emptyText='Tente pesquisar por outro título ou autor.') {
-        $('#discover-grid').innerHTML=state.discoveries.map(b=>card(b,'discover')).join('');
-        $('#discover-empty').hidden=state.discoveries.length>0;
-        $('#discover-empty h3').textContent=emptyTitle;
-        $('#discover-empty p').textContent=emptyText;
+
+    function renderLibrary() {
+        const query = state.libraryQuery.toLocaleLowerCase('pt-BR');
+        const list = state.library.filter(book => {
+            const matchesFilter = state.filter === 'all' || book.readingStatus === state.filter;
+            const matchesQuery = !query
+                || book.title.toLocaleLowerCase('pt-BR').includes(query)
+                || book.authors.toLocaleLowerCase('pt-BR').includes(query);
+            return matchesFilter && matchesQuery;
+        });
+
+        libraryGrid.innerHTML = list.map(book => card(book, 'library')).join('');
+        $('#library-empty').hidden = list.length > 0;
+        updateStats();
     }
+
+    // Atualiza só os cartões (usado quando a biblioteca muda e o botão "Adicionar" vira "Ler agora").
+    function renderDiscoverCards() {
+        $('#discover-grid').innerHTML = state.discoveries.map(book => card(book, 'discover')).join('');
+    }
+
+    function renderDiscoveries(emptyTitle = 'Nenhum livro encontrado.', emptyText = 'Tente pesquisar por outro título ou autor.') {
+        renderDiscoverCards();
+        $('#discover-empty').hidden = state.discoveries.length > 0;
+        $('#discover-empty h3').textContent = emptyTitle;
+        $('#discover-empty p').textContent = emptyText;
+    }
+
     function renderHistory() {
-        const list = state.library.filter(
-            b => b.readingStatus === 'COMPLETED'
-        );
-
-        historyGrid.innerHTML = list
-            .map(b => card(b, 'history'))
-            .join('');
-
+        const list = state.library.filter(book => book.readingStatus === 'COMPLETED');
+        historyGrid.innerHTML = list.map(book => card(book, 'history')).join('');
         $('#history-empty').hidden = list.length > 0;
-    }    function renderAll(){renderLibrary();renderDiscoveries();renderHistory()}
-    async function loadLibrary(){try{const d=await request(`${API}/mine`);state.library=Array.isArray(d)?d.map(normalizeBook):[];renderAll()}catch(e){msg(`${e.message} (GET ${API}/mine)`, 'error')}}
-    async function loadNewBooks(){
-        msg('Preparando uma seleção de livros...');
+    }
+
+    function renderAll() {
+        renderLibrary();
+        renderDiscoverCards();
+        renderHistory();
+    }
+
+    function showView(name) {
+        const views = {
+            library: $('#library-view'),
+            discover: $('#discover-view'),
+            history: $('#history-view'),
+        };
+        Object.entries(views).forEach(([key, view]) => {
+            view.hidden = key !== name;
+        });
+        document.querySelectorAll('.nav-link').forEach(button => {
+            button.classList.toggle('active', button.dataset.view === name);
+        });
+        if (name === 'library') {
+            renderLibrary();
+        }
+        if (name === 'history') {
+            renderHistory();
+        }
+    }
+
+    // --------------------------------------------------------------- carregamento
+
+    async function loadLibrary() {
+        try {
+            const data = await request(`${API}/mine`);
+            state.library = Array.isArray(data) ? data.map(normalizeBook) : [];
+            renderAll();
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    async function loadNewBooks() {
+        $('#discover-title').textContent = 'Novas descobertas';
+        $('#discover-eyebrow').textContent = 'SELEÇÃO HOUSEBOOK';
         renderDiscoveries('Carregando descobertas...', 'Estamos consultando o catálogo de livros.');
         try {
-            const data=await request(`${API}/new`);
-            state.discoveries=googleItems(data);
+            const data = await request(`${API}/new`);
+            state.discoveries = Array.isArray(data?.results) ? data.results.map(normalizeCatalogItem) : [];
             renderDiscoveries(
-                state.discoveries.length ? '' : 'Nenhum livro disponível neste momento.',
-                state.discoveries.length ? '' : 'A Gutendex não retornou obras para a seleção inicial. Tente novamente em instantes.'
+                'Nenhum livro disponível neste momento.',
+                'A Gutendex não retornou obras para a seleção inicial. Tente novamente em instantes.',
             );
-            if(state.discoveries.length) msg(`${state.discoveries.length} livros disponíveis para descobrir.`);
-            else msg('A consulta foi concluída, mas não retornou livros.','error');
-        } catch(e) {
-            state.discoveries=[];
+        } catch (error) {
+            state.discoveries = [];
             renderDiscoveries('Não foi possível carregar os livros.', 'Confira sua conexão e tente novamente.');
-            msg(`${e.message} (GET ${API}/new)`, 'error');
+            msg(error.message, 'error');
         }
     }
-    async function searchBooks(q){
-        if(!q.trim()) return;
+
+    async function searchBooks(query) {
+        if (!query.trim()) {
+            return;
+        }
         showView('discover');
-        $('#book-search').value=q;
-        msg('Pesquisando no catálogo gratuito Gutendex...');
-        $('#discover-title').textContent='Resultados da pesquisa';
-        $('#discover-eyebrow').textContent='RESULTADOS ENCONTRADOS';
+        $('#book-search').value = query;
+        $('#discover-title').textContent = 'Resultados da pesquisa';
+        $('#discover-eyebrow').textContent = 'RESULTADOS ENCONTRADOS';
+        msg('Pesquisando no catálogo gratuito...');
+
+        const params = new URLSearchParams({ q: query.trim() });
+        if ($('#book-language').value) {
+            params.set('language', $('#book-language').value);
+        }
+        if ($('#book-format').value) {
+            params.set('mimeType', $('#book-format').value);
+        }
+        if ($('#book-topic').value) {
+            params.set('topic', $('#book-topic').value);
+        }
+
         try {
-            const params=new URLSearchParams({q:q.trim()});
-            if($('#book-language')?.value)params.set('language',$('#book-language').value);
-            if($('#book-format')?.value)params.set('mimeType',$('#book-format').value);
-            if($('#book-topic')?.value)params.set('topic',$('#book-topic').value);
-            state.discoveries=googleItems(await request(`${API}/search?${params.toString()}`));
+            const data = await request(`${API}/search?${params}`);
+            state.discoveries = Array.isArray(data?.results) ? data.results.map(normalizeCatalogItem) : [];
             renderDiscoveries(
                 'Nenhum livro encontrado.',
-                'Não encontramos resultados para essa pesquisa. Tente outro título, autor ou assunto.'
+                'Não encontramos resultados para essa pesquisa. Tente outro título, autor ou assunto.',
             );
-            msg(state.discoveries.length?`${state.discoveries.length} resultado(s) encontrado(s).`:'Nenhum livro encontrado.');
-        } catch(e) {
-            state.discoveries=[];
+            msg(state.discoveries.length ? `${state.discoveries.length} resultado(s) encontrado(s).` : 'Nenhum livro encontrado.');
+        } catch (error) {
+            state.discoveries = [];
             renderDiscoveries('A pesquisa não pôde ser concluída.', 'Confira sua conexão e tente novamente.');
-            msg(`${e.message} (pesquisa)`, 'error');
+            msg(error.message, 'error');
         }
     }
-    async function acquire(id){try{await request(`${API}/acquire/${encodeURIComponent(id)}`,{method:'POST'});msg('Livro adicionado à sua biblioteca!','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
-    async function markRead(id){try{await request(`${API}/history/${encodeURIComponent(id)}`,{method:'POST'});msg('Livro marcado como concluído!','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
-    async function removeBook(id){if(!confirm('Deseja remover este livro da sua biblioteca?'))return;try{await request(`${API}/${encodeURIComponent(id)}`,{method:'DELETE'});msg('Livro removido da sua biblioteca.','success');await loadLibrary()}catch(e){msg(e.message,'error')}}
-    function showDetails(book){
-        const image=cover(book);
-        const formats=Object.entries(book.formats||{}).filter(([type,url])=>/^https:\/\//i.test(url)).map(([type,url])=>`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(type)}</a>`).join(' · ');
-        $('#dialog-content').innerHTML=`<div class="dialog-book">${image}<div><p class="eyebrow">DETALHES DA OBRA</p><h2>${esc(book.title)}</h2><p><strong>Autor:</strong> ${esc(book.authors)}</p><p><strong>Fonte:</strong> ${esc(book.publisher||'Project Gutenberg')}</p><p><strong>Idioma:</strong> ${esc(book.language||'Não informado')}</p><p><strong>Downloads:</strong> ${Number(book.downloadCount||0).toLocaleString('pt-BR')}</p><p><strong>Assuntos:</strong> ${esc(book.description||book.subjects||'Não informado')}</p><p><strong>Formatos disponíveis:</strong> ${formats||'Não informado'}</p><p><strong>Leitura no site:</strong> ${book.contentAvailable?'Texto integral disponível':'Sem texto TXT compatível'}</p></div></div>`;
+
+    // -------------------------------------------------------------------- ações
+
+    async function acquire(id) {
+        try {
+            await request(`${API}/acquire/${encodeURIComponent(id)}`, { method: 'POST' });
+            msg('Livro adicionado à sua biblioteca! Toque em “Ler agora” para começar.', 'success');
+            await loadLibrary();
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    async function markRead(id) {
+        try {
+            await request(`${API}/history/${encodeURIComponent(id)}`, { method: 'POST' });
+            msg('Livro marcado como concluído!', 'success');
+            await loadLibrary();
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    async function removeBook(id) {
+        if (!confirm('Deseja remover este livro da sua biblioteca?')) {
+            return;
+        }
+        try {
+            await request(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            msg('Livro removido da sua biblioteca.', 'success');
+            await loadLibrary();
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    // ------------------------------------------------------------------ detalhes
+
+    const FORMAT_LABELS = {
+        'text/plain': 'Texto',
+        'text/html': 'HTML',
+        'application/epub+zip': 'EPUB',
+        'application/x-mobipocket-ebook': 'Kindle',
+        'application/pdf': 'PDF',
+    };
+
+    function formatLinks(formats) {
+        const seen = new Set();
+        const links = [];
+        Object.entries(formats || {}).forEach(([type, url]) => {
+            const label = FORMAT_LABELS[type.split(';')[0].trim()];
+            if (label && !seen.has(label) && /^https:\/\//i.test(url)) {
+                seen.add(label);
+                links.push(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+            }
+        });
+        return links.length ? `<div class="format-links">${links.join('')}</div>` : 'Não informado';
+    }
+
+    function showDetails(book) {
+        const owned = book.userBookId ?? libraryEntryFor(book)?.userBookId;
+        const action = owned
+            ? actionButton('📖 Ler agora', { 'data-action': 'open-reader', 'data-id': owned }, 'primary')
+            : actionButton('＋ Adicionar à biblioteca', { 'data-action': 'add', 'data-id': book.googleBookId }, 'primary');
+
+        $('#dialog-content').innerHTML = `
+            <div class="dialog-book">
+                ${coverMarkup(book)}
+                <div>
+                    <p class="eyebrow">DETALHES DA OBRA</p>
+                    <h2>${esc(book.title)}</h2>
+                    <p><strong>Autor:</strong> ${esc(book.authors)}</p>
+                    <p><strong>Fonte:</strong> ${esc(book.publisher || 'Project Gutenberg')}</p>
+                    <p><strong>Idioma:</strong> ${esc(book.language || 'Não informado')}</p>
+                    <p><strong>Downloads:</strong> ${Number(book.downloadCount || 0).toLocaleString('pt-BR')}</p>
+                    <p><strong>Assuntos:</strong> ${esc(book.subjects || book.description || 'Não informado')}</p>
+                    <p><strong>Baixar em outros formatos:</strong> ${formatLinks(book.formats)}</p>
+                    <p><strong>Leitura no site:</strong> ${book.contentAvailable ? 'Texto integral disponível' : 'Sem texto compatível (você pode importar um TXT)'}</p>
+                    <div class="dialog-actions">${action}</div>
+                </div>
+            </div>`;
         bookDialog.showModal();
     }
-    function showView(name){const views={library:$('#library-view'),discover:$('#discover-view'),history:$('#history-view')};Object.entries(views).forEach(([k,v])=>v.hidden=k!==name);document.querySelectorAll('.nav-link').forEach(b=>b.classList.toggle('active',b.dataset.view===name));if(name==='library')renderLibrary();if(name==='history')renderHistory()}
-    const readerDialog=$('#reader-dialog');
-    function renderReader(){
-        const r=state.reader, chapter=r.chapters[r.index];
-        $('#reader-chapter-list').innerHTML=r.chapters.map((c,i)=>`<li><button type="button" data-chapter-index="${i}" class="${i===r.index?'active':''}">${esc(c.title)}</button></li>`).join('');
-        $('#reader-empty').hidden=r.chapters.length>0;
-        $('#reader-content').hidden=!chapter;
-        $('#reader-chapter-label').textContent=chapter?`CAPÍTULO ${chapter.chapterNumber||r.index+1}`:'LEITURA';
-        $('#reader-chapter-title').textContent=chapter?.title||'Conteúdo não disponível';
-        $('#reader-content').textContent=chapter?.content||'';
-        $('#reader-position').textContent=chapter?`Parte ${r.index+1} de ${r.chapters.length}`:'Sem conteúdo';
-        $('#reader-previous').disabled=!chapter||r.index===0;
-        $('#reader-next').disabled=!chapter||r.index>=r.chapters.length-1;
-        $('#reader-book-title').textContent=state.library.find(b=>String(b.userBookId)===String(r.userBookId))?.title||'HouseBook Reader';
-        $('.reader-content').style.fontSize=`${r.font}px`;
+
+    // -------------------------------------------------------------------- leitor
+
+    const READER_PREF_KEYS = { font: 'housebook.reader.font', theme: 'housebook.reader.theme' };
+
+    function loadReaderPrefs() {
+        try {
+            const font = Number(localStorage.getItem(READER_PREF_KEYS.font));
+            if (font >= 14 && font <= 30) {
+                reader.font = font;
+            }
+            const theme = localStorage.getItem(READER_PREF_KEYS.theme);
+            if (['paper', 'sepia', 'night'].includes(theme)) {
+                readerPage.dataset.theme = theme;
+                $('#reader-theme').value = theme;
+            }
+        } catch {
+            // preferências são opcionais
+        }
+        readerPage.style.setProperty('--reader-size', `${reader.font}px`);
     }
 
-    // Divide o texto remoto em partes menores para manter a leitura fluida no navegador.
-    function splitRemoteText(raw){
-        const clean=String(raw||'').replace(/\r\n?/g,'\n').trim();
-        if(!clean) return [];
-        const chunks=[];
-        const max=18000;
-        for(let offset=0;offset<clean.length;offset+=max){
-            chunks.push({
-                chapterNumber:chunks.length+1,
-                title:`Parte ${chunks.length+1}`,
-                content:clean.slice(offset,offset+max)
+    function saveReaderPref(key, value) {
+        try {
+            localStorage.setItem(READER_PREF_KEYS[key], String(value));
+        } catch {
+            // sem armazenamento disponível
+        }
+    }
+
+    function setReaderLoading(loading, text = 'Preparando seu livro...') {
+        $('#reader-loading').hidden = !loading;
+        $('#reader-loading-text').textContent = text;
+        if (loading) {
+            readerContent.hidden = true;
+            $('#reader-empty').hidden = true;
+        }
+    }
+
+    function showReaderEmpty(title, text, { error = false } = {}) {
+        setReaderLoading(false);
+        readerContent.hidden = true;
+        $('#reader-empty').hidden = false;
+        $('#reader-empty-title').textContent = title;
+        $('#reader-empty-text').textContent = text;
+        $('#reader-retry').hidden = !error;
+        $('#reader-chapter-label').textContent = 'LEITURA';
+        $('#reader-chapter-title').textContent = reader.book?.title || 'Seu livro';
+        updatePagination();
+    }
+
+    function resetReader(book) {
+        reader.userBookId = book?.userBookId ?? reader.userBookId;
+        reader.book = book || null;
+        reader.chapters = [];
+        reader.index = 0;
+        reader.cache.clear();
+        reader.lastSaved = '';
+        reader.pending = null;
+        reader.token += 1;
+
+        $('#reader-book-title').textContent = book?.title || 'HouseBook Reader';
+        $('#reader-book-author').textContent = book?.authors || '';
+        $('#reader-chapter-list').innerHTML = '';
+        $('#reader-progress-bar').style.width = '0%';
+        readerContent.replaceChildren();
+        readerContent.lang = book?.language || 'pt';
+        readerPage.scrollTop = 0;
+
+        const cover = $('#reader-cover');
+        cover.hidden = !book?.thumbnail;
+        cover.src = book?.thumbnail || '';
+        cover.alt = book ? `Capa de ${book.title}` : '';
+    }
+
+    async function openReader(userBookId) {
+        const book = state.library.find(item => String(item.userBookId) === String(userBookId));
+        resetReader(book || { userBookId });
+        bookDialog.close();
+        if (!readerDialog.open) {
+            readerDialog.showModal();
+        }
+
+        const token = reader.token;
+        setReaderLoading(true, 'Preparando seu livro... na primeira vez pode levar alguns segundos.');
+        try {
+            const data = await request(`${READER_API}/${encodeURIComponent(userBookId)}`);
+            if (token !== reader.token) {
+                return;
+            }
+            reader.chapters = data.chapters || [];
+            $('#reader-book-title').textContent = data.title || reader.book?.title || 'HouseBook Reader';
+            $('#reader-book-author').textContent = data.authors || reader.book?.authors || '';
+            renderChapterList();
+
+            if (!reader.chapters.length) {
+                showReaderEmpty(
+                    'Adicione o conteúdo desta obra',
+                    data.officialTextAvailable
+                        ? 'Não foi possível preparar o texto deste livro. Você pode importar um arquivo TXT.'
+                        : 'O Project Gutenberg não fornece o texto integral deste título. Importe um arquivo TXT de uma obra que você tenha direito de utilizar.',
+                );
+                return;
+            }
+            await showChapter(Math.max(0, (data.currentChapter || 1) - 1), { paragraph: data.currentParagraph || 0 });
+        } catch (error) {
+            if (token === reader.token) {
+                showReaderEmpty('Não foi possível abrir o livro', error.message, { error: true });
+            }
+        }
+    }
+
+    function renderChapterList() {
+        $('#reader-chapter-list').innerHTML = reader.chapters
+            .map((chapter, index) => `
+                <li>
+                    <button type="button" data-chapter-index="${index}" title="${esc(chapter.title)}"
+                            class="${index === reader.index ? 'active' : ''}"
+                            ${index === reader.index ? 'aria-current="true"' : ''}>${esc(chapter.title)}</button>
+                </li>`)
+            .join('');
+        $('#reader-chapter-list .active')?.scrollIntoView({ block: 'nearest' });
+    }
+
+    async function fetchChapter(number) {
+        if (reader.cache.has(number)) {
+            return reader.cache.get(number);
+        }
+        const chapter = await request(`${READER_API}/${encodeURIComponent(reader.userBookId)}/chapters/${number}`);
+        reader.cache.set(number, chapter);
+        return chapter;
+    }
+
+    async function showChapter(index, { paragraph = 0 } = {}) {
+        if (index < 0 || index >= reader.chapters.length) {
+            return;
+        }
+        const token = reader.token;
+        const number = reader.chapters[index].chapterNumber;
+        const needsFetch = !reader.cache.has(number);
+        if (needsFetch) {
+            setReaderLoading(true, 'Carregando capítulo...');
+        }
+
+        try {
+            const chapter = await fetchChapter(number);
+            if (token !== reader.token) {
+                return;
+            }
+            reader.index = index;
+            renderChapter(chapter, paragraph);
+            renderChapterList();
+            updatePagination();
+            updateProgressBar();
+            schedulePrefetch(index + 1);
+            if (paragraph === 0) {
+                queueProgress(number, 0, true);
+            }
+        } catch (error) {
+            if (token === reader.token) {
+                showReaderEmpty('Não foi possível carregar o capítulo', error.message, { error: true });
+            }
+        }
+    }
+
+    function renderChapter(chapter, paragraph) {
+        setReaderLoading(false);
+        $('#reader-empty').hidden = true;
+        readerContent.hidden = false;
+        $('#reader-chapter-label').textContent = `CAPÍTULO ${chapter.chapterNumber} DE ${reader.chapters.length}`;
+        $('#reader-chapter-title').textContent = chapter.title;
+
+        const fragment = document.createDocumentFragment();
+        String(chapter.content || '').split(/\n{2,}/).forEach((text, position) => {
+            const element = document.createElement('p');
+            element.dataset.index = position;
+            element.textContent = text;
+            fragment.append(element);
+        });
+        readerContent.replaceChildren(fragment);
+
+        const first = readerContent.firstElementChild;
+        readerContent.classList.toggle('has-dropcap', Boolean(first) && first.textContent.length > 120 && !first.textContent.includes('\n'));
+
+        readerPage.scrollTop = 0;
+        if (paragraph > 0) {
+            requestAnimationFrame(() => {
+                const target = readerContent.children[paragraph];
+                if (target) {
+                    readerPage.scrollTop += target.getBoundingClientRect().top - readerPage.getBoundingClientRect().top - 24;
+                }
             });
         }
-        if(chunks.length===1) chunks[0].title='Texto integral';
-        return chunks;
     }
 
-    async function openReader(id){
-        state.reader.userBookId=id;
-        state.reader.index=0;
-        state.reader.chapters=[];
-        state.reader.remote=false;
-        readerDialog.showModal();
-        $('#reader-empty').hidden=false;
-        $('#reader-empty h2').textContent='Carregando sua leitura...';
-        $('#reader-empty p').textContent='Buscando o conteúdo salvo na biblioteca.';
-        renderReader();
-        try{
-            // Atualiza o status da obra e registra a data de início no primeiro acesso.
-            await request(`/api/reader/${encodeURIComponent(id)}/start`,{method:'POST'});
-            await loadLibrary();
-            // Primeiro carrega capítulos importados/salvos no banco e respeita o progresso do usuário.
-            const saved=await request(`/api/reader/${encodeURIComponent(id)}/chapters`);
-            if(Array.isArray(saved)&&saved.length){
-                state.reader.chapters=saved;
-                const book=state.library.find(b=>String(b.userBookId)===String(id));
-                const savedChapter=Number(book?.currentChapter||1);
-                const savedIndex=saved.findIndex(c=>Number(c.chapterNumber)===savedChapter);
-                state.reader.index=savedIndex>=0?savedIndex:0;
-            }else{
-                // Sem capítulos salvos, tenta obter o TXT oferecido pelo Project Gutenberg.
-                const text=await request(`${API}/content/${encodeURIComponent(id)}`);
-                state.reader.chapters=splitRemoteText(text);
-                state.reader.remote=true;
-            }
-            renderReader();
-            if(!state.reader.chapters.length){
-                $('#reader-empty').hidden=false;
-                $('#reader-empty h2').textContent='Conteúdo não encontrado';
-                $('#reader-empty p').textContent='Esta obra não possui texto integral compatível na Gutendex. Se você possui um arquivo TXT autorizado, pode importá-lo abaixo.';
-            }
-        }catch(e){
-            $('#reader-empty').hidden=false;
-            $('#reader-empty h2').textContent='Leitura indisponível';
-            $('#reader-empty p').textContent=`${e.message} Você também pode importar um arquivo TXT autorizado para esta obra.`;
-            msg(e.message,'error');
+    function schedulePrefetch(index) {
+        const next = reader.chapters[index];
+        if (next && !reader.cache.has(next.chapterNumber)) {
+            fetchChapter(next.chapterNumber).catch(() => {});
         }
     }
-    async function saveReaderProgress(){
-        const c=state.reader.chapters[state.reader.index];
-        // O endpoint de progresso só acompanha capítulos persistidos no banco.
-        if(!c||state.reader.remote)return;
-        try{
-            await request(`/api/reader/${state.reader.userBookId}/progress`,{
-                method:'PATCH',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({currentChapter:c.chapterNumber,currentParagraph:0})
+
+    function updatePagination() {
+        const total = reader.chapters.length;
+        const last = total > 0 && reader.index >= total - 1;
+        const next = $('#reader-next');
+
+        $('#reader-previous').disabled = total === 0 || reader.index === 0;
+        next.disabled = total === 0;
+        next.textContent = last ? 'Concluir leitura ✓' : 'Próximo →';
+        next.classList.toggle('is-finish', last);
+        $('#reader-position').textContent = total ? `Capítulo ${reader.index + 1} de ${total}` : 'Sem conteúdo';
+    }
+
+    function currentParagraph() {
+        const top = readerPage.getBoundingClientRect().top + 40;
+        const paragraphs = readerContent.children;
+        for (let i = 0; i < paragraphs.length; i += 1) {
+            if (paragraphs[i].getBoundingClientRect().bottom > top) {
+                return i;
+            }
+        }
+        return Math.max(0, paragraphs.length - 1);
+    }
+
+    function updateProgressBar() {
+        const total = reader.chapters.length;
+        if (!total) {
+            return;
+        }
+        const scrollable = readerPage.scrollHeight - readerPage.clientHeight;
+        const inChapter = scrollable > 0 ? Math.min(1, readerPage.scrollTop / scrollable) : 0;
+        const percent = Math.round(((reader.index + inChapter) / total) * 100);
+        $('#reader-progress-bar').style.width = `${percent}%`;
+        $('.reader-progress').setAttribute('aria-valuenow', String(percent));
+    }
+
+    // Guarda a posição de leitura com um pequeno atraso, para não enviar uma requisição a cada rolagem.
+    function queueProgress(chapter, paragraph, immediate = false) {
+        const key = `${chapter}:${paragraph}`;
+        if (key === reader.lastSaved) {
+            return;
+        }
+        reader.pending = { chapter, paragraph, key, userBookId: reader.userBookId };
+        clearTimeout(reader.saveTimer);
+        if (immediate) {
+            flushProgress();
+        } else {
+            reader.saveTimer = setTimeout(flushProgress, PROGRESS_DELAY_MS);
+        }
+    }
+
+    async function flushProgress() {
+        clearTimeout(reader.saveTimer);
+        const pending = reader.pending;
+        if (!pending) {
+            return;
+        }
+        reader.pending = null;
+        try {
+            await request(`${READER_API}/${encodeURIComponent(pending.userBookId)}/progress`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentChapter: pending.chapter, currentParagraph: pending.paragraph }),
+                keepalive: true,
             });
-            const book=state.library.find(b=>String(b.userBookId)===String(state.reader.userBookId));
-            if(book) book.currentChapter=c.chapterNumber;
-        }catch(e){msg(`Não foi possível salvar o progresso: ${e.message}`,'error')}
+            reader.lastSaved = pending.key;
+        } catch (error) {
+            console.warn('Não foi possível salvar o progresso.', error);
+        }
     }
 
-    async function importReaderText(e){
-        e.preventDefault();
-        const file=$('#reader-file').files[0];
-        if(!file)return;
-        if(file.size>5*1024*1024){msg('O arquivo deve ter no máximo 5 MB.','error');return}
-        const data=new FormData();
-        data.append('file',file);
-        try{
-            state.reader.chapters=await request(`/api/reader/${state.reader.userBookId}/content`,{method:'POST',body:data});
-            state.reader.remote=false;
-            state.reader.index=0;
-            $('#reader-file').value='';
-            renderReader();
-            await loadLibrary();
-            msg('Texto importado. Boa leitura!','success');
-        }catch(err){msg(err.message,'error')}
-    }
-    $('#reader-upload-form').addEventListener('submit',importReaderText);
-    $('#reader-chapter-list').addEventListener('click',async e=>{const b=e.target.closest('[data-chapter-index]');if(!b)return;state.reader.index=Number(b.dataset.chapterIndex);renderReader();await saveReaderProgress()});
-    $('#reader-previous').addEventListener('click',async()=>{if(state.reader.index>0){state.reader.index--;renderReader();await saveReaderProgress()}});
-    $('#reader-next').addEventListener('click',async()=>{if(state.reader.index<state.reader.chapters.length-1){state.reader.index++;renderReader();await saveReaderProgress()}});
-    $('#reader-smaller').addEventListener('click',()=>{state.reader.font=Math.max(14,state.reader.font-1);$('.reader-content').style.fontSize=`${state.reader.font}px`});
-    $('#reader-larger').addEventListener('click',()=>{state.reader.font=Math.min(30,state.reader.font+1);$('.reader-content').style.fontSize=`${state.reader.font}px`});
-    $('#reader-theme').addEventListener('change',e=>$('.reader-page').dataset.theme=e.target.value);
-    $('#reader-close').addEventListener('click',()=>readerDialog.close());$('#reader-back').addEventListener('click',()=>readerDialog.close());
-    async function loadUser(){try{const u=await request('/user/me');const name=u.name||'Aventureiro';$('#profile-name').textContent=name;$('#menu-profile-name').textContent=name;$('#profile-email').textContent=u.email||'';$('#profile-initial').textContent=name.trim().charAt(0).toUpperCase()||'H';$('#profile-preview-initial').textContent=$('#profile-initial').textContent;$('#edit-name').value=name;if(u.hasPhoto)await loadPhoto()}catch(e){msg(e.message,'error');if(e.message.includes('sessão'))location.replace('/index.html')}}
-    async function loadPhoto(){try{const r=await fetch('/user/foto',{credentials:'same-origin'});if(!r.ok)return;const blob=await r.blob();const url=URL.createObjectURL(blob);['#profile-photo','#profile-preview'].forEach(sel=>{const img=$(sel);if(img.dataset.url)URL.revokeObjectURL(img.dataset.url);img.dataset.url=url;img.src=url;img.hidden=false});$('#profile-initial').hidden=true;$('#profile-preview-initial').hidden=true}catch{}}
-    async function saveProfile(e){e.preventDefault();const name=$('#edit-name').value.trim();if(!name){$('#profile-feedback').textContent='Informe um nome.';return}const data=new FormData();data.append('name',name);if(state.profilePhotoFile)data.append('foto',state.profilePhotoFile);const btn=$('#profile-form').querySelector('button[type=submit]');btn.disabled=true;try{await request('/user/profile',{method:'POST',body:data});$('#profile-feedback').textContent='Perfil atualizado com sucesso.';$('#profile-feedback').className='form-feedback success';await loadUser();setTimeout(()=>$('#profile-dialog').close(),650)}catch(err){$('#profile-feedback').textContent=err.message;$('#profile-feedback').className='form-feedback error'}finally{btn.disabled=false}}
-    async function logout(){try{await request('/user/logout',{method:'POST'});location.replace('/index.html')}catch(e){msg(e.message,'error')}}
-    function setupAccessibility(){const panel=$('#access-panel'),toggle=$('#access-toggle');function open(){panel.hidden=false;toggle.setAttribute('aria-expanded','true')}function close(){panel.hidden=true;toggle.setAttribute('aria-expanded','false')}toggle.addEventListener('click',()=>panel.hidden?open():close());$('#menu-access-button').addEventListener('click',()=>{open();$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false')});$('#close-access').addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape'){close();$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false')}});document.querySelectorAll('[data-font-choice]').forEach(b=>b.addEventListener('click',()=>{document.documentElement.style.setProperty('--font-scale',b.dataset.fontChoice==='large'?'1.15':'1');document.querySelectorAll('[data-font-choice]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}));$('#contrast-toggle').addEventListener('click',e=>{const on=document.documentElement.dataset.contrast!=='high';document.documentElement.dataset.contrast=on?'high':'normal';e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.textContent=on?'Desativar alto contraste':'Ativar alto contraste'});document.querySelectorAll('[data-theme-choice]').forEach(b=>b.addEventListener('click',()=>{document.documentElement.dataset.theme=b.dataset.themeChoice;document.querySelectorAll('[data-theme-choice]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))}))}
-    $('#profile-menu-toggle').addEventListener('click',()=>{const menu=$('#profile-menu');menu.hidden=!menu.hidden;$('#profile-menu-toggle').setAttribute('aria-expanded',String(!menu.hidden))});$('#edit-profile-button').addEventListener('click',()=>{$('#profile-menu').hidden=true;$('#profile-menu-toggle').setAttribute('aria-expanded','false');$('#profile-feedback').textContent='';$('#profile-dialog').showModal()});$('#profile-photo-input').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>2*1024*1024){$('#profile-feedback').textContent='Escolha JPG, PNG ou WEBP com até 2 MB.';e.target.value='';state.profilePhotoFile=null;return}state.profilePhotoFile=f;const url=URL.createObjectURL(f);$('#profile-preview').src=url;$('#profile-preview').hidden=false;$('#profile-preview-initial').hidden=true});$('#profile-form').addEventListener('submit',saveProfile);document.querySelectorAll('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.closeDialog).close()));
-    document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));$('#discover-button').addEventListener('click',()=>showView('discover'));document.querySelectorAll('[data-open-discover]').forEach(b=>b.addEventListener('click',()=>showView('discover')));document.querySelectorAll('.filter-button').forEach(b=>b.addEventListener('click',()=>{state.filter=b.dataset.filter;document.querySelectorAll('.filter-button').forEach(x=>x.classList.toggle('active',x===b));renderLibrary()}));$('#library-search').addEventListener('input',e=>{state.libraryQuery=e.target.value;renderLibrary()});$('#book-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#book-search').value)});$('#retry-discover').addEventListener('click',loadNewBooks);$('#global-search-form').addEventListener('submit',e=>{e.preventDefault();searchBooks($('#global-search').value)});
-    // Se a URL da capa estiver indisponível, revela o placeholder sem inserir HTML dinâmico.
-    document.addEventListener('error',e=>{
-        if(e.target.matches('.book-cover')){
-            const shell=e.target.closest('.cover-image-shell');
-            if(shell){e.target.hidden=true;const fallback=shell.querySelector('.cover-fallback');if(fallback)fallback.hidden=false;}
+    function onReaderScroll() {
+        if (reader.scrollQueued || readerContent.hidden) {
+            return;
         }
-    },true);
-    document.addEventListener('click',async e=>{const el=e.target.closest('[data-action]');if(!el)return;const {action,id,mode}=el.dataset;if(action==='add')return acquire(id);if(action==='read')return markRead(id);if(action==='open-reader')return openReader(id);if(action==='remove')return removeBook(id);if(action==='details'){const list=mode==='discover'?state.discoveries:state.library;const book=mode==='discover'?list.find(b=>b.googleBookId===id):list.find(b=>String(b.userBookId)===id);if(book)showDetails(book)}});$('#dialog-close').addEventListener('click',()=>bookDialog.close());$('#logout-button').addEventListener('click',logout);setupAccessibility();
-    async function init(){await ensureCsrf();await loadUser();await Promise.all([loadLibrary(),loadNewBooks()])}init();
+        reader.scrollQueued = true;
+        requestAnimationFrame(() => {
+            reader.scrollQueued = false;
+            updateProgressBar();
+            const chapter = reader.chapters[reader.index];
+            if (chapter) {
+                queueProgress(chapter.chapterNumber, currentParagraph());
+            }
+        });
+    }
+
+    async function goToChapter(index) {
+        await flushProgress();
+        await showChapter(index);
+    }
+
+    async function nextOrFinish() {
+        if (reader.index < reader.chapters.length - 1) {
+            await goToChapter(reader.index + 1);
+            return;
+        }
+        await flushProgress();
+        try {
+            await request(`${READER_API}/${encodeURIComponent(reader.userBookId)}/complete`, { method: 'POST' });
+            readerDialog.close();
+            msg('Parabéns! Livro concluído e guardado no seu histórico.', 'success');
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    async function importReaderText(event) {
+        event.preventDefault();
+        const file = $('#reader-file').files[0];
+        if (!file) {
+            return;
+        }
+        const data = new FormData();
+        data.append('file', file);
+
+        const token = reader.token;
+        setReaderLoading(true, 'Importando o texto...');
+        try {
+            const result = await request(`${READER_API}/${encodeURIComponent(reader.userBookId)}/content`, {
+                method: 'POST',
+                body: data,
+            });
+            if (token !== reader.token) {
+                return;
+            }
+            reader.cache.clear();
+            reader.chapters = result.chapters || [];
+            reader.index = 0;
+            renderChapterList();
+            $('#reader-file').value = '';
+            await showChapter(0);
+            msg('Texto importado. Boa leitura!', 'success');
+        } catch (error) {
+            showReaderEmpty('Não foi possível importar o texto', error.message, { error: false });
+            msg(error.message, 'error');
+        }
+    }
+
+    function changeFont(delta) {
+        reader.font = Math.min(30, Math.max(14, reader.font + delta));
+        readerPage.style.setProperty('--reader-size', `${reader.font}px`);
+        saveReaderPref('font', reader.font);
+        requestAnimationFrame(updateProgressBar);
+    }
+
+    function setupReader() {
+        loadReaderPrefs();
+
+        $('#reader-upload-form').addEventListener('submit', importReaderText);
+        $('#reader-retry').addEventListener('click', () => openReader(reader.userBookId));
+        $('#reader-previous').addEventListener('click', () => goToChapter(reader.index - 1));
+        $('#reader-next').addEventListener('click', nextOrFinish);
+        $('#reader-smaller').addEventListener('click', () => changeFont(-1));
+        $('#reader-larger').addEventListener('click', () => changeFont(1));
+        $('#reader-close').addEventListener('click', () => readerDialog.close());
+        $('#reader-back').addEventListener('click', () => readerDialog.close());
+        readerPage.addEventListener('scroll', onReaderScroll, { passive: true });
+
+        $('#reader-theme').addEventListener('change', event => {
+            readerPage.dataset.theme = event.target.value;
+            saveReaderPref('theme', event.target.value);
+        });
+
+        $('#reader-chapter-list').addEventListener('click', event => {
+            const button = event.target.closest('[data-chapter-index]');
+            if (button) {
+                goToChapter(Number(button.dataset.chapterIndex));
+            }
+        });
+
+        // Setas do teclado viram a página (exceto ao usar o seletor de tema ou o campo de arquivo).
+        readerDialog.addEventListener('keydown', event => {
+            if (event.target.closest('select, input') || event.altKey || event.ctrlKey || event.metaKey) {
+                return;
+            }
+            if (event.key === 'ArrowRight' && reader.index < reader.chapters.length - 1) {
+                goToChapter(reader.index + 1);
+            } else if (event.key === 'ArrowLeft' && reader.index > 0) {
+                goToChapter(reader.index - 1);
+            }
+        });
+
+        // Ao fechar o leitor (botão, Esc...), salva onde parou e atualiza a estante.
+        readerDialog.addEventListener('close', async () => {
+            const chapter = reader.chapters[reader.index];
+            if (chapter && !readerContent.hidden) {
+                queueProgress(chapter.chapterNumber, currentParagraph(), true);
+            }
+            await flushProgress();
+            reader.token += 1;
+            await loadLibrary();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                flushProgress();
+            }
+        });
+    }
+
+    // --------------------------------------------------------------------- perfil
+
+    async function loadUser() {
+        try {
+            const user = await request('/user/me');
+            const name = user.name || 'Aventureiro';
+            const initial = name.trim().charAt(0).toUpperCase() || 'H';
+
+            $('#profile-name').textContent = name;
+            $('#menu-profile-name').textContent = name;
+            $('#profile-email').textContent = user.email || '';
+            $('#profile-initial').textContent = initial;
+            $('#profile-preview-initial').textContent = initial;
+            $('#edit-name').value = name;
+
+            if (user.hasPhoto) {
+                await loadPhoto();
+            }
+        } catch (error) {
+            msg(error.message, 'error');
+            if (error.message.includes('sessão')) {
+                location.replace('/index.html');
+            }
+        }
+    }
+
+    async function loadPhoto() {
+        try {
+            const response = await fetch('/user/foto', { credentials: 'same-origin' });
+            if (!response.ok) {
+                return;
+            }
+            const url = URL.createObjectURL(await response.blob());
+            ['#profile-photo', '#profile-preview'].forEach(selector => {
+                const image = $(selector);
+                if (image.dataset.url) {
+                    URL.revokeObjectURL(image.dataset.url);
+                }
+                image.dataset.url = url;
+                image.src = url;
+                image.hidden = false;
+            });
+            $('#profile-initial').hidden = true;
+            $('#profile-preview-initial').hidden = true;
+        } catch {
+            // a foto é opcional
+        }
+    }
+
+    async function saveProfile(event) {
+        event.preventDefault();
+        const feedbackBox = $('#profile-feedback');
+        const name = $('#edit-name').value.trim();
+        if (!name) {
+            feedbackBox.textContent = 'Informe um nome.';
+            return;
+        }
+
+        const data = new FormData();
+        data.append('name', name);
+        if (state.profilePhotoFile) {
+            data.append('foto', state.profilePhotoFile);
+        }
+
+        const button = $('#profile-form').querySelector('button[type=submit]');
+        button.disabled = true;
+        try {
+            await request('/user/profile', { method: 'POST', body: data });
+            feedbackBox.textContent = 'Perfil atualizado com sucesso.';
+            feedbackBox.className = 'form-feedback success';
+            await loadUser();
+            setTimeout(() => $('#profile-dialog').close(), 650);
+        } catch (error) {
+            feedbackBox.textContent = error.message;
+            feedbackBox.className = 'form-feedback error';
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    async function logout() {
+        try {
+            await request('/user/logout', { method: 'POST' });
+            location.replace('/index.html');
+        } catch (error) {
+            msg(error.message, 'error');
+        }
+    }
+
+    function closeProfileMenu() {
+        $('#profile-menu').hidden = true;
+        $('#profile-menu-toggle').setAttribute('aria-expanded', 'false');
+    }
+
+    function setupProfile() {
+        $('#profile-menu-toggle').addEventListener('click', () => {
+            const menu = $('#profile-menu');
+            menu.hidden = !menu.hidden;
+            $('#profile-menu-toggle').setAttribute('aria-expanded', String(!menu.hidden));
+        });
+
+        $('#edit-profile-button').addEventListener('click', () => {
+            closeProfileMenu();
+            $('#profile-feedback').textContent = '';
+            $('#profile-dialog').showModal();
+        });
+
+        $('#profile-photo-input').addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+            const validType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+            if (!validType || file.size > 2 * 1024 * 1024) {
+                $('#profile-feedback').textContent = 'Escolha JPG, PNG ou WEBP com até 2 MB.';
+                event.target.value = '';
+                state.profilePhotoFile = null;
+                return;
+            }
+            state.profilePhotoFile = file;
+            $('#profile-preview').src = URL.createObjectURL(file);
+            $('#profile-preview').hidden = false;
+            $('#profile-preview-initial').hidden = true;
+        });
+
+        $('#profile-form').addEventListener('submit', saveProfile);
+        $('#logout-button').addEventListener('click', logout);
+        document.querySelectorAll('[data-close-dialog]').forEach(button => {
+            button.addEventListener('click', () => $(`#${button.dataset.closeDialog}`).close());
+        });
+    }
+
+    // -------------------------------------------------------------- acessibilidade
+
+    function setupAccessibility() {
+        const panel = $('#access-panel');
+        const toggle = $('#access-toggle');
+
+        const open = () => {
+            panel.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+        };
+        const close = () => {
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+        };
+
+        toggle.addEventListener('click', () => (panel.hidden ? open() : close()));
+        $('#menu-access-button').addEventListener('click', () => {
+            open();
+            closeProfileMenu();
+        });
+        $('#close-access').addEventListener('click', close);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                close();
+                closeProfileMenu();
+            }
+        });
+
+        document.querySelectorAll('[data-font-choice]').forEach(button => {
+            button.addEventListener('click', () => {
+                document.documentElement.style.setProperty('--font-scale', button.dataset.fontChoice === 'large' ? '1.15' : '1');
+                document.querySelectorAll('[data-font-choice]').forEach(other => {
+                    other.setAttribute('aria-pressed', String(other === button));
+                });
+            });
+        });
+
+        $('#contrast-toggle').addEventListener('click', event => {
+            const enable = document.documentElement.dataset.contrast !== 'high';
+            document.documentElement.dataset.contrast = enable ? 'high' : 'normal';
+            event.currentTarget.setAttribute('aria-pressed', String(enable));
+            event.currentTarget.textContent = enable ? 'Desativar alto contraste' : 'Ativar alto contraste';
+        });
+
+        document.querySelectorAll('[data-theme-choice]').forEach(button => {
+            button.addEventListener('click', () => {
+                document.documentElement.dataset.theme = button.dataset.themeChoice;
+                document.querySelectorAll('[data-theme-choice]').forEach(other => {
+                    other.setAttribute('aria-pressed', String(other === button));
+                });
+            });
+        });
+    }
+
+    // ------------------------------------------------------------------- eventos
+
+    function setupNavigation() {
+        document.querySelectorAll('.nav-link').forEach(button => {
+            button.addEventListener('click', () => showView(button.dataset.view));
+        });
+        $('#discover-button').addEventListener('click', () => showView('discover'));
+        document.querySelectorAll('[data-open-discover]').forEach(button => {
+            button.addEventListener('click', () => showView('discover'));
+        });
+
+        document.querySelectorAll('.filter-button').forEach(button => {
+            button.addEventListener('click', () => {
+                state.filter = button.dataset.filter;
+                document.querySelectorAll('.filter-button').forEach(other => {
+                    other.classList.toggle('active', other === button);
+                });
+                renderLibrary();
+            });
+        });
+
+        $('#library-search').addEventListener('input', event => {
+            state.libraryQuery = event.target.value;
+            renderLibrary();
+        });
+        $('#book-search-form').addEventListener('submit', event => {
+            event.preventDefault();
+            searchBooks($('#book-search').value);
+        });
+        $('#global-search-form').addEventListener('submit', event => {
+            event.preventDefault();
+            searchBooks($('#global-search').value);
+        });
+        $('#retry-discover').addEventListener('click', loadNewBooks);
+        $('#dialog-close').addEventListener('click', () => bookDialog.close());
+    }
+
+    function findForDetails(mode, id) {
+        return mode === 'discover'
+            ? state.discoveries.find(book => book.googleBookId === id)
+            : state.library.find(book => String(book.userBookId) === id);
+    }
+
+    // Um único ouvinte trata todos os botões dos cartões e da janela de detalhes.
+    document.addEventListener('click', async event => {
+        const element = event.target.closest('[data-action]');
+        if (!element) {
+            return;
+        }
+        const { action, id, mode } = element.dataset;
+
+        if (action === 'details') {
+            const book = findForDetails(mode, id);
+            if (book) {
+                showDetails(book);
+            }
+            return;
+        }
+
+        if (bookDialog.open) {
+            bookDialog.close();
+        }
+        if (action === 'add') {
+            await acquire(id);
+        } else if (action === 'read') {
+            await markRead(id);
+        } else if (action === 'open-reader') {
+            await openReader(id);
+        } else if (action === 'remove') {
+            await removeBook(id);
+        }
+    });
+
+    async function init() {
+        setupNavigation();
+        setupProfile();
+        setupAccessibility();
+        setupReader();
+        await ensureCsrf();
+        await loadUser();
+        await Promise.all([loadLibrary(), loadNewBooks()]);
+    }
+
+    init();
 })();

@@ -18,3 +18,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  # O padrão do Spring é 1 MB; o app aceita TXT de até 5 MB e foto de perfil de até 2 MB.
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 7MB

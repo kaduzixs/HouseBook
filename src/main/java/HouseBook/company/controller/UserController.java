@@ -70,11 +70,25 @@ public class UserController {
         return userService.buscarPorId(userId).filter(user -> user.getFoto() != null && user.getFotoContentType() != null).map(user -> ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store").contentType(MediaType.parseMediaType(user.getFotoContentType())).body(user.getFoto())).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PostMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> updateProfile(@RequestParam String name, @RequestParam(value = "foto", required = false) MultipartFile foto, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Long userId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sua sessão expirou. Entre novamente.");
+        }
+
+        try {
+            userService.atualizarPerfil(userId, name, foto);
+            return ResponseEntity.ok("Perfil atualizado com sucesso!");
+        }
+        catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        }
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> meusDados(Authentication authentication) {
 
-        if (authentication == null ||
-                !(authentication.getPrincipal() instanceof Long userId)) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Long userId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -96,4 +110,3 @@ public class UserController {
         return ResponseEntity.ok(csrfToken);
     }
 }
-
