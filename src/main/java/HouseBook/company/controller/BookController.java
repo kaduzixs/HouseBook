@@ -2,6 +2,9 @@ package HouseBook.company.controller;
 
 import HouseBook.company.dto.BookResponseDTO;
 import HouseBook.company.service.BookService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,6 +21,8 @@ import tools.jackson.databind.JsonNode;
 import java.util.List;
 
 @RestController
+@Tag(name = "Livros e biblioteca", description = "Pesquisa no catálogo Gutendex e gerenciamento da biblioteca individual.")
+@SecurityRequirement(name = "sessionCookie")
 @RequestMapping("/api/books")
 public class BookController {
 
@@ -36,12 +41,14 @@ public class BookController {
     }
 
     // Livros da biblioteca do usuário
+    @Operation(summary = "Listar minha biblioteca", description = "Retorna os livros associados à conta autenticada.")
     @GetMapping("/mine")
     public ResponseEntity<List<BookResponseDTO>> getMyBooks(Authentication authentication) {
         return ResponseEntity.ok(bookService.getUserBooks(getAuthenticatedUserId(authentication)));
     }
 
     // 1. Pesquisar livros na Gutendex / Project Gutenberg
+    @Operation(summary = "Pesquisar livros", description = "Pesquisa títulos, autores ou assuntos no catálogo Gutendex. Parâmetro q obrigatório; language, topic e mimeType são opcionais.")
     @GetMapping("/search")
     public ResponseEntity<JsonNode> searchBooks(@RequestParam("q") String q, @RequestParam(value = "language", required = false) String language, @RequestParam(value = "topic", required = false) String topic, @RequestParam(value = "mimeType", required = false) String mimeType) {
         if (q == null || q.isBlank()) {
@@ -51,6 +58,7 @@ public class BookController {
     }
 
     // 2. Adquirir livro e adicionar à biblioteca
+    @Operation(summary = "Adicionar livro à biblioteca", description = "Obtém os metadados do livro na Gutendex e o associa ao usuário autenticado.")
     @PostMapping("/acquire/{googleBookId}")
     public ResponseEntity<BookResponseDTO> acquireBook(@PathVariable String googleBookId, Authentication authentication) {
         if (googleBookId == null || googleBookId.isBlank()) {
@@ -61,12 +69,14 @@ public class BookController {
     }
 
     // 3. Marcar livro como concluído (histórico)
+    @Operation(summary = "Marcar livro como concluído", description = "Atualiza o status do livro da biblioteca para COMPLETED.")
     @PostMapping("/history/{userBookId}")
     public ResponseEntity<BookResponseDTO> addToHistory(@PathVariable Long userBookId, Authentication authentication) {
         return ResponseEntity.ok(bookService.addToHistory(userBookId, getAuthenticatedUserId(authentication)));
     }
 
     // 4. Remover livro da biblioteca
+    @Operation(summary = "Remover livro da biblioteca", description = "Remove o vínculo do livro com a biblioteca do usuário autenticado.")
     @DeleteMapping("/{userBookId}")
     public ResponseEntity<Void> removeBook(@PathVariable Long userBookId, Authentication authentication) {
         bookService.removeBook(userBookId, getAuthenticatedUserId(authentication));
@@ -74,6 +84,7 @@ public class BookController {
     }
 
     // 5. Livros populares do catálogo
+    @Operation(summary = "Listar livros populares", description = "Retorna a seleção popular fornecida pela Gutendex.")
     @GetMapping("/new")
     public ResponseEntity<JsonNode> getNewBooks() {
         return ResponseEntity.ok(bookService.getNewBooks());

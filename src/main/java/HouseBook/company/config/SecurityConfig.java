@@ -11,7 +11,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.ignoringRequestMatchers("/user/login", "/user/register")).authorizeHttpRequests(auth -> auth.requestMatchers("/", "/index.html", "/auth.css", "/auth.js", "/favicon.ico").permitAll().requestMatchers("/user/login", "/user/register").permitAll().anyRequest().authenticated());
+        http.csrf(csrf -> csrf.ignoringRequestMatchers("/user/login", "/user/register")).authorizeHttpRequests(auth -> auth.requestMatchers("/", "/index.html", "/auth.css", "/auth.js", "/favicon.ico", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll().requestMatchers("/user/login", "/user/register").permitAll().anyRequest().authenticated());
         return http.build();
     }
 }

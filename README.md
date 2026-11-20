@@ -1,657 +1,443 @@
-<div algum=“center”>
-# 🌲 HouseBook
+# HouseBook
 
-### Sua biblioteca pessoal, organizada em um refúgio de histórias.
+**Biblioteca pessoal e ambiente de leitura digital.**
 
-**Uma aplicação web para construir, organizar e acompanhar sua jornada
-literária.**
+O HouseBook é uma aplicação web desenvolvida em Java e Spring Boot para cadastro e autenticação de usuários, pesquisa de livros no catálogo Gutendex/Project Gutenberg, organização de uma biblioteca individual e acompanhamento da leitura por capítulos.
 
-[Visão geral](#-visão-geral) · [Tecnologias](#-tecnologias) ·
-[Arquitetura](#-arquitetura-do-projeto) · [Execução](#-como-executar) ·
-[API](#-endpoints-disponíveis) · [Segurança](#-segurança)
-:::
+> **Proprietário e desenvolvedor:** João.  
+> **Apoio de desenvolvimento:** ferramentas de inteligência artificial, incluindo Claude (Anthropic) e ChatGPT/GPT (OpenAI), foram utilizadas como apoio durante etapas de planejamento, consulta técnica, análise de alternativas, depuração e elaboração da documentação. As ferramentas atuaram como assistentes; as decisões técnicas, integração, validação e responsabilidade pelo projeto permanecem com o proprietário/desenvolvedor.
 
-<div align="center">
-    Para verificar como está o andamento do projeto entre neste link:
-    
-</div>
-https://housebook-0xes.onrender.com
+---
 
-------------------------------------------------------------------------
+## 1. Visão geral
 
-## 📖 Visão geral
+O sistema oferece:
 
-O **HouseBook** é uma aplicação web desenvolvida com Java e Spring Boot,
-estruturada para oferecer uma experiência centralizada de organização
-literária. A proposta é disponibilizar um ambiente no qual cada pessoa
-possa acessar sua conta e, nas próximas etapas de desenvolvimento,
-administrar sua própria biblioteca, acompanhar leituras e reunir
-informações sobre seus livros.
+- Cadastro de conta com nome, e-mail e senha.
+- Autenticação baseada em sessão HTTP.
+- Consulta e atualização dos dados do perfil.
+- Foto de perfil opcional.
+- Pesquisa de livros por meio da API Gutendex.
+- Inclusão e remoção de livros na biblioteca individual.
+- Listagem de livros populares.
+- Abertura de livros e consulta de capítulos.
+- Importação de conteúdo em arquivo TXT.
+- Salvamento do capítulo e parágrafo atuais.
+- Marcação de leitura como concluída.
 
-A identidade visual segue o conceito de uma **floresta encantada
-antiga**: uma interface acolhedora, com referências a bibliotecas
-medievais, livros pixelados, iluminação suave e opções de
-acessibilidade.
+O frontend estático utiliza HTML, CSS e JavaScript. O backend expõe endpoints REST e utiliza Spring Security, Spring Data JPA e PostgreSQL.
 
-O projeto está sendo construído por etapas. Este repositório contém a
-base de autenticação, persistência de usuários, configuração de
-segurança e a interface inicial de login e cadastro. Recursos literários
-adicionais fazem parte da evolução planejada e não devem ser
-considerados concluídos até que seus respectivos módulos estejam
-implementados.
+## 2. Tecnologias
 
-## 🎯 Objetivos do projeto
+| Tecnologia | Uso |
+|---|---|
+| Java 17 | Linguagem da aplicação |
+| Spring Boot 4.1.2 | Estrutura e inicialização do backend |
+| Spring WebMVC | Endpoints HTTP/REST |
+| Spring Security | Autenticação, sessão e autorização |
+| Spring Data JPA / Hibernate | Persistência e ORM |
+| PostgreSQL | Banco de dados relacional |
+| Supabase | Serviço PostgreSQL configurado para o ambiente |
+| BCrypt | Hash de senhas |
+| Jakarta Validation | Validação de parâmetros e DTOs |
+| Maven | Dependências e build |
+| springdoc-openapi 3.0.1 | Geração da especificação OpenAPI e interface Swagger UI |
+| HTML5, CSS3 e JavaScript | Interface web |
+| Gutendex / Project Gutenberg | Catálogo externo e origem de textos |
 
--   Estruturar uma aplicação web com separação entre apresentação,
-    controladores, serviços e persistência.
--   Implementar cadastro e autenticação de usuários.
--   Armazenar os dados de conta em PostgreSQL.
--   Proteger senhas com hash BCrypt.
--   Preparar a aplicação para que os dados de cada usuário sejam
-    associados à sua própria identidade.
--   Construir uma interface acessível, responsiva e visualmente
-    consistente.
--   Evoluir a plataforma para gerenciamento de livros, favoritos,
-    comentários e histórico.
+## 3. Arquitetura
 
-## ✨ Experiência da interface
+A aplicação segue uma organização em camadas:
 
-A página inicial de autenticação foi concebida para apresentar a
-identidade visual do HouseBook sem comprometer a clareza dos
-formulários.
-
-### Login
-
-A tela de entrada permite que o usuário informe e-mail e senha. O
-navegador envia os dados ao endpoint de autenticação e apresenta o
-retorno recebido pela API.
-
-### Cadastro
-
-O formulário de registro solicita nome, e-mail e senha. A validação no
-navegador melhora a experiência, enquanto as regras definitivas devem
-permanecer no backend.
-
-### Foto de perfil
-
-A interface permite selecionar uma imagem de perfil opcional e exibe uma
-prévia antes do envio. O JavaScript limita a seleção a JPG, PNG ou WEBP
-e a arquivos de até 2 MB.
-
-> **Estado técnico importante:** na versão atual do código analisado, o
-> frontend envia o arquivo no campo multipart `foto`, mas o
-> `UserController` e o `UserService` ainda recebem `fotoUrl` como texto
-> e validam uma URL HTTPS de um host configurado como exemplo. Portanto,
-> o upload binário e o armazenamento da imagem no PostgreSQL ainda
-> precisam ser alinhados no backend. Não considere o armazenamento da
-> foto como concluído nesta versão.
-
-### Acessibilidade e personalização
-
-A interface oferece controles para: - aumentar o tamanho do texto; -
-ativar alto contraste; - alternar entre paletas de cores; - navegar
-pelos controles com rótulos acessíveis; - abrir e fechar o painel de
-acessibilidade pelo teclado.
-
-### Identidade visual
-
--   Cenário inspirado em uma floresta antiga e encantada.
--   Livros pixelados com movimento decorativo.
--   Elementos de iluminação e atmosfera de fantasia.
--   Layout adaptável a diferentes tamanhos de tela.
-
-## 🧰 Tecnologias
-
-  -----------------------------------------------------------------------
-Tecnologia                          Responsabilidade
-  ----------------------------------- -----------------------------------
-Java 17                             Linguagem da aplicação
-
-Spring Boot 4.1.2                   Base da aplicação backend
-
-Spring WebMVC                       Exposição dos endpoints HTTP
-
-Spring Security                     Regras de acesso e contexto de
-autenticação
-
-Spring Data JPA                     Persistência e consultas de
-entidades
-
-Hibernate                           Mapeamento objeto-relacional
-
-PostgreSQL                          Banco de dados relacional
-
-Supabase                            Hospedagem do PostgreSQL utilizada
-na configuração
-
-BCrypt                              Hash de senhas
-
-Jakarta Validation                  Suporte à validação de dados
-
-Lombok                              Redução de código repetitivo
-
-HTML5                               Estrutura da interface
-
-CSS3                                Estilização e responsividade
-
-JavaScript                          Interações, validações de
-experiência e requisições HTTP
-
-Maven                               Gerenciamento de dependências e
-build
-
-Docker                              Empacotamento e execução em
-contêiner
-  -----------------------------------------------------------------------
-
-## 🏛️ Arquitetura do projeto
-
-A aplicação utiliza uma organização em camadas. Cada camada possui uma
-responsabilidade delimitada, evitando concentrar regras de negócio,
-persistência e comunicação HTTP em uma única classe.
-
-``` text
-company/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── HouseBook/
-│   │   │       └── company/
-│   │   │           ├── config/
-│   │   │           │   ├── ByCript.java
-│   │   │           │   └── SecurityConfig.java
-│   │   │           ├── controller/
-│   │   │           │   └── UserController.java
-│   │   │           ├── dto/
-│   │   │           │   └── RegisterRequest.java
-│   │   │           ├── model/
-│   │   │           │   ├── User.java
-│   │   │           │   └── UserRepository.java
-│   │   │           ├── service/
-│   │   │           │   └── UserService.java
-│   │   │           └── CompanyApplication.java
-│   │   └── resources/
-│   │       ├── static/
-│   │       │   ├── index.html
-│   │       │   ├── auth.css
-│   │       │   └── auth.js
-│   │       └── application.yaml
-│   └── test/
-├── .mvn/
-├── Dockerfile
-├── mvnw
-├── mvnw.cmd
-├── pom.xml
-└── README.md
+```text
+src/main/java/HouseBook/company/
+├── config/       # Segurança, tratamento de exceções e OpenAPI
+├── controller/   # Endpoints HTTP
+├── dto/          # Objetos de resposta e transferência
+├── enums/        # Estados de leitura
+├── model/        # Entidades e repositórios JPA
+├── Request/      # Estruturas de entrada
+├── service/      # Regras de negócio e integrações externas
+└── util/         # Processamento de texto e capas
 ```
 
-### Fase 1 --- Configuração (`config`)
+### Fluxo simplificado
 
-Responsável por definir componentes transversais da aplicação.
+1. O cliente envia uma requisição HTTP.
+2. O Spring Security verifica a sessão e as regras de acesso.
+3. O controller valida e encaminha a operação.
+4. A camada de serviço executa as regras de negócio.
+5. Os repositórios JPA acessam o PostgreSQL quando necessário.
+6. O controller devolve o status HTTP e o corpo da resposta.
 
--   **`ByCript.java`**: disponibiliza um `PasswordEncoder` baseado em
-    BCrypt.
--   **`SecurityConfig.java`**: define as rotas públicas e exige
-    autenticação para as demais requisições.
+## 4. Documentação Swagger / OpenAPI
 
-### Fase 2 --- Entidade e persistência (`model`)
+A documentação interativa é gerada automaticamente a partir dos controllers e das anotações OpenAPI.
 
-Responsável pela representação dos dados e pelo acesso ao banco.
+Com a aplicação em execução:
 
--   **`User.java`**: entidade JPA associada à tabela `users`, com
-    identificador, nome, e-mail, senha e campo `fotoUrl`.
--   **`UserRepository.java`**: interface baseada em `JpaRepository`, com
-    consulta por e-mail.
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
+- **OpenAPI YAML:** `http://localhost:8080/v3/api-docs.yaml`
 
-O e-mail é definido como único no mapeamento da entidade. A aplicação
-também normaliza o e-mail antes da consulta e do cadastro.
+Os caminhos `/swagger-ui/**` e `/v3/api-docs/**` estão liberados para consulta, sem exigir login. As operações que trabalham com a biblioteca e a leitura estão identificadas como protegidas por sessão.
 
-### Fase 3 --- Regras de negócio (`service`)
+### Autenticação no Swagger
 
-O `UserService` concentra as regras do cadastro e da autenticação.
+O login é realizado por `POST /user/login`. Quando as credenciais são válidas, o servidor cria uma sessão e retorna o cookie `JSESSIONID`.
 
-No cadastro, o serviço: 1. normaliza o nome e o e-mail; 2. verifica se o
-nome foi informado e respeita o limite de caracteres; 3. valida a
-estrutura e o tamanho do e-mail; 4. exige senha entre 8 e 72 caracteres;
-5. verifica se o e-mail já existe; 6. aplica BCrypt à senha; 7. persiste
-   o usuário; 8. trata conflitos de integridade que podem ocorrer em
-   cadastros simultâneos.
+Para testar as demais rotas:
 
-No login, o serviço: 1. rejeita campos ausentes ou vazios; 2. normaliza
-o e-mail; 3. procura o usuário pelo endereço informado; 4. compara a
-senha recebida com o hash armazenado usando `PasswordEncoder.matches`;
-5. retorna o usuário somente quando as credenciais são válidas.
+1. Execute `GET /user/csrf` e obtenha o token CSRF.
+2. Execute `POST /user/login` com `email` e `password`.
+3. Preserve o cookie `JSESSIONID` retornado pelo servidor.
+4. Nas operações protegidas por CSRF, envie o token no cabeçalho `X-CSRF-TOKEN`.
+5. Envie o cookie de sessão nas chamadas seguintes.
 
-### Fase 4 --- Comunicação HTTP (`controller`)
+O Swagger UI pode não compartilhar automaticamente a sessão com todos os navegadores ou ambientes de proxy. Se a sessão não for mantida na interface, utilize um cliente HTTP que preserve cookies, como Bruno, Insomnia ou Postman.
 
-O `UserController` disponibiliza os endpoints de cadastro, login e
-logout. Ele recebe as requisições, delega as regras ao serviço e devolve
-códigos HTTP compatíveis com o resultado.
+## 5. Referência dos endpoints
 
-O login cria uma autenticação Spring Security, registra o contexto de
-segurança na sessão HTTP e mantém o identificador do usuário na sessão.
+### 5.1 Conta e autenticação
 
-### Fase 5 --- Contratos de entrada (`dto`)
+Base: `/user`
 
-A pasta `dto` contém objetos destinados ao transporte e à validação de
-dados. `RegisterRequest.java` está presente como estrutura de registro.
-O endpoint atualmente implementado recebe os campos por `@RequestParam`;
-o DTO ainda não está integrado ao método de cadastro.
+| Método | Endpoint | Acesso | Descrição |
+|---|---|---|---|
+| POST | `/user/register` | Público | Cadastra usuário via `multipart/form-data` |
+| POST | `/user/login` | Público | Autentica e cria sessão |
+| GET | `/user/csrf` | Público | Obtém token CSRF |
+| GET | `/user/me` | Sessão | Consulta os dados da conta autenticada |
+| GET | `/user/foto` | Sessão | Retorna a foto de perfil |
+| POST | `/user/profile` | Sessão | Atualiza nome e foto |
+| POST | `/user/logout` | Sessão | Invalida a sessão |
 
-### Fase 6 --- Interface (`static`)
+#### Cadastro — `POST /user/register`
 
--   **`index.html`**: estrutura da tela de login e cadastro.
--   **`auth.css`**: identidade visual, layout, animações e adaptação
-    para telas menores.
--   **`auth.js`**: alternância dos formulários, prévia de foto,
-    validações de experiência, controles de acessibilidade e chamadas à
-    API.
+Content-Type: `multipart/form-data`
 
-A validação executada no JavaScript é uma conveniência para o usuário.
-Ela não substitui a validação no servidor, pois qualquer cliente pode
-enviar requisições diretamente à API.
+| Campo | Tipo | Obrigatório | Regra |
+|---|---|---:|---|
+| `name` | string | Sim | Não vazio; até 100 caracteres |
+| `email` | string | Sim | E-mail válido; até 254 caracteres |
+| `password` | string | Sim | De 8 a 72 caracteres |
+| `foto` | arquivo | Não | JPG, PNG ou WEBP; até 2 MB |
 
-## 🔐 Segurança
+Respostas principais: `201 Created`, `400 Bad Request` e `409 Conflict`.
 
-Segurança é uma responsabilidade distribuída entre backend, banco de
-dados, sessão e interface. O HouseBook utiliza as seguintes medidas na
-base atual:
+#### Login — `POST /user/login`
 
-### Proteção de senha
+Parâmetros de formulário:
 
-As senhas são processadas por `BCryptPasswordEncoder`. O banco deve
-armazenar somente o hash produzido pelo encoder, nunca a senha original.
+| Campo | Tipo | Obrigatório |
+|---|---|---:|
+| `email` | string | Sim |
+| `password` | string | Sim |
 
-### Verificação de credenciais
+Respostas: `200 OK` com criação da sessão ou `401 Unauthorized` para credenciais inválidas.
 
-O login utiliza `PasswordEncoder.matches()` para comparar a senha
-informada com o hash persistido. A API retorna uma mensagem genérica
-para credenciais inválidas, evitando distinguir e-mail inexistente de
-senha incorreta.
+#### Consultar conta — `GET /user/me`
 
-### Sessão e autenticação
+Resposta de sucesso:
 
-Após validar as credenciais, o controlador cria um
-`UsernamePasswordAuthenticationToken`, define o `SecurityContext` e o
-persiste por meio de `HttpSessionSecurityContextRepository`.
-
-A aplicação também altera o identificador da sessão após o login, medida
-relacionada à proteção contra session fixation.
-
-### Controle de acesso
-
-A configuração atual libera a página inicial, os arquivos estáticos e as
-rotas de login e cadastro. As demais requisições exigem autenticação.
-
-### Validação de entrada
-
-O serviço aplica limites para nome, e-mail e senha. A consulta por
-e-mail normalizado reduz inconsistências causadas por diferenças entre
-letras maiúsculas, minúsculas e espaços.
-
-### Cuidados necessários antes de produção
-
--   Implementar limitação de tentativas de login (*rate limiting*). Essa
-    proteção não está implementada no código atual.
--   Revisar a política CSRF. Atualmente, a configuração ignora CSRF
-    especificamente em `/user/login` e `/user/register`; isso deve ser
-    avaliado antes da publicação.
--   Configurar cookies de sessão com `HttpOnly`, `Secure` em HTTPS e
-    `SameSite` adequado ao cenário.
--   Não expor stack traces, credenciais ou detalhes internos em
-    respostas HTTP.
--   Validar conteúdo real de arquivos enviados, e não confiar
-    exclusivamente no `Content-Type`.
--   Aplicar limites de tamanho no servidor, além dos limites do
-    navegador.
--   Configurar segredos e credenciais por variáveis de ambiente.
--   Implementar testes de autorização para garantir que um usuário não
-    acesse dados pertencentes a outra conta.
--   Adotar política de atualização e migração de schema controlada em
-    vez de depender indefinidamente de `ddl-auto: update`.
-
-> O README descreve o código presente no repositório analisado. Itens
-> apresentados como cuidados ou evolução não devem ser interpretados
-> como funcionalidades já entregues.
-
-## 🗄️ Banco de dados e configuração
-
-A aplicação utiliza PostgreSQL por meio do driver JDBC e do Spring Data
-JPA. A configuração está em `src/main/resources/application.yaml`.
-
-As credenciais são lidas pelas variáveis de ambiente:
-
-Variável        Finalidade
-  --------------- -----------------------------
-`DB_USERNAME`   Usuário do banco PostgreSQL
-`DB_PASSWORD`   Senha do banco PostgreSQL
-
-Não coloque credenciais reais no repositório. Configure essas variáveis
-no ambiente local, no provedor de hospedagem ou no serviço de contêiner.
-
-A configuração atual utiliza `ddl-auto: update`, que permite ao
-Hibernate atualizar o schema durante o desenvolvimento. Para ambientes
-críticos, prefira migrações versionadas com uma ferramenta própria para
-esse fim.
-
-### Modelo atual de usuário
-
-  -----------------------------------------------------------------------
-Campo                   Tipo Java               Regra observada
-  ----------------------- ----------------------- -----------------------
-`id`                    `Long`                  Identificador gerado
-
-`name`                  `String`                Não nulo
-
-`email`                 `String`                Não nulo e único
-
-`password`              `String`                Não nulo; deve conter
-hash BCrypt
-
-`fotoUrl`               `String`                Opcional; atualmente
-representa URL, não
-bytes da imagem
-  -----------------------------------------------------------------------
-
-**Atenção à foto de perfil:** o modelo atual não utiliza `byte[]` nem
-`BYTEA`. Para armazenar a imagem diretamente no PostgreSQL, será
-necessário alterar a entidade, o serviço e o controller para receber
-`MultipartFile`, validar o arquivo no backend e persistir os bytes em
-uma coluna binária. O frontend atual já envia o campo `foto` como
-multipart, portanto os contratos precisam ser alinhados antes de
-considerar esse fluxo funcional.
-
-## 🚀 Como executar localmente
-
-### Pré-requisitos
-
--   Java 17 instalado;
--   PostgreSQL acessível;
--   Git;
--   Maven Wrapper incluído no repositório.
-
-### 1. Clonar o repositório
-
-``` bash
-git clone https://github.com/SEU-USUARIO/SEU-REPOSITORIO.git
-cd SEU-REPOSITORIO
+```json
+{
+  "id": 12,
+  "name": "Nome do usuário",
+  "email": "usuario@exemplo.com",
+  "hasPhoto": true
+}
 ```
 
-Substitua o endereço de exemplo pelo endereço real do repositório.
+Os valores acima são ilustrativos.
 
-### 2. Configurar o banco
+#### Atualizar perfil — `POST /user/profile`
 
-Crie ou selecione um banco PostgreSQL e obtenha as credenciais de
-conexão. A URL JDBC está definida em `application-test.yaml`; ajuste-a para o
-ambiente que será utilizado.
+Content-Type: `multipart/form-data`
 
-### 3. Definir as variáveis de ambiente
+- `name`: nome atualizado, obrigatório.
+- `foto`: nova imagem, opcional.
 
-No Linux:
+#### Foto — `GET /user/foto`
 
-``` bash
-export DB_USERNAME="seu_usuario"
-export DB_PASSWORD="sua_senha"
-```
+Retorna os bytes da imagem com o tipo MIME armazenado. Respostas possíveis: `200 OK`, `401 Unauthorized` ou `404 Not Found`.
 
-No Windows PowerShell:
+### 5.2 Livros e biblioteca
 
-``` powershell
-$env:DB_USERNAME="seu_usuario"
-$env:DB_PASSWORD="sua_senha"
-```
+Base: `/api/books`
 
-Use valores locais e privados. Não publique senhas em commits, prints ou
-arquivos versionados.
+As operações deste grupo exigem sessão autenticada.
 
-### 4. Executar a aplicação
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/books/mine` | Lista os livros da biblioteca do usuário |
+| GET | `/api/books/search` | Pesquisa no catálogo Gutendex |
+| POST | `/api/books/acquire/{googleBookId}` | Adiciona um livro à biblioteca |
+| POST | `/api/books/history/{userBookId}` | Marca o livro como concluído |
+| DELETE | `/api/books/{userBookId}` | Remove o livro da biblioteca |
+| GET | `/api/books/new` | Retorna livros populares da Gutendex |
 
-No Linux ou macOS:
+#### Pesquisa — `GET /api/books/search`
 
-``` bash
-chmod +x mvnw
-./mvnw spring-boot:run
-```
-
-No Windows:
-
-``` powershell
-.\mvnw.cmd spring-boot:run
-```
-
-### 5. Acessar a aplicação
-
-Com a aplicação iniciada, abra:
-
-``` text
-http://localhost:8080/
-```
-
-A página está em `src/main/resources/static/index.html`, servida pelo
-Spring Boot.
-
-## 🔌 Endpoints disponíveis
-
-Os endpoints abaixo correspondem ao `UserController` presente nesta
-versão.
-
-Método   Rota               Acesso          Finalidade
-  -------- ------------------ --------------- -----------------------------------
-`POST`   `/user/register`   Público         Cadastrar usuário
-`POST`   `/user/login`      Público         Autenticar usuário e criar sessão
-`POST`   `/user/logout`     Requer sessão   Encerrar sessão
-
-### Cadastro --- `POST /user/register`
-
-O controller atual recebe os parâmetros `name`, `email`, `password` e
-`fotoUrl`.
-
-Exemplo de requisição `application/x-www-form-urlencoded`:
-
-``` text
-name=Ana
-email=ana@example.com
-password=SenhaForte123
-fotoUrl=
-```
-
-Respostas previstas: - `201 Created`: cadastro concluído; -
-`400 Bad Request`: dados inválidos; - `409 Conflict`: e-mail já
-cadastrado.
-
-**Importante:** este contrato reflete o backend atual. Ele não
-corresponde ao envio multipart `foto` realizado pelo JavaScript da
-interface. Para habilitar upload de arquivo, atualize o controller para
-receber `MultipartFile` e alinhe o serviço e a entidade.
-
-### Login --- `POST /user/login`
-
-Recebe `email` e `password` como parâmetros de formulário.
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---:|---|
+| `q` | string | Sim | Título, autor ou termo de pesquisa |
+| `language` | string | Não | Filtro de idioma |
+| `topic` | string | Não | Filtro de assunto |
+| `mimeType` | string | Não | Filtro de formato MIME |
 
 Exemplo:
 
-``` text
-email=ana@example.com
-password=SenhaForte123
+```http
+GET /api/books/search?q=sherlock&language=en
 ```
 
-Respostas previstas: - `200 OK`: autenticação realizada; -
-`401 Unauthorized`: credenciais inválidas.
+#### Adicionar livro — `POST /api/books/acquire/{googleBookId}`
 
-A autenticação é mantida em sessão HTTP. O cliente deve preservar o
-cookie de sessão para as próximas requisições protegidas.
+O identificador deve ser numérico e corresponder a um registro disponível na Gutendex. A operação cria ou reutiliza o registro global do livro e cria o vínculo com a biblioteca do usuário autenticado.
 
-### Logout --- `POST /user/logout`
+Respostas principais: `201 Created`, `400 Bad Request`, `404 Not Found` e `409 Conflict` quando o livro já pertence à biblioteca.
 
-Invalida a sessão HTTP atual e encerra a sessão do usuário.
+#### Remover livro — `DELETE /api/books/{userBookId}`
 
-Resposta prevista: - `200 OK`: sessão encerrada.
+Remove somente o vínculo do livro com a biblioteca do usuário autenticado. Resposta de sucesso: `204 No Content`.
 
-## 🐳 Execução com Docker
+### 5.3 Leitura e capítulos
 
-O repositório possui um `Dockerfile` em duas etapas: a primeira compila
-o projeto com Maven e Java 17; a segunda utiliza uma imagem JRE para
-executar o artefato gerado.
+Base: `/api/reader`
+
+Todas as operações exigem sessão autenticada e verificam se o livro pertence à biblioteca do usuário.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/reader/{userBookId}` | Abre o livro e retorna o estado da leitura |
+| GET | `/api/reader/{userBookId}/chapters` | Lista os capítulos |
+| GET | `/api/reader/{userBookId}/chapters/{number}` | Retorna o conteúdo de um capítulo |
+| POST | `/api/reader/{userBookId}/content` | Importa conteúdo TXT |
+| PATCH | `/api/reader/{userBookId}/progress` | Atualiza o progresso |
+| POST | `/api/reader/{userBookId}/complete` | Marca a leitura como concluída |
+
+#### Importar conteúdo — `POST /api/reader/{userBookId}/content`
+
+Content-Type: `multipart/form-data`
+
+| Campo | Tipo | Obrigatório | Regra |
+|---|---|---:|---|
+| `file` | arquivo | Sim | Arquivo `.txt`, até 5 MB |
+
+O processador tenta reconhecer capítulos, remove elementos editoriais comuns do Project Gutenberg e divide textos longos em partes. O caractere de formulário (`\f`) pode ser usado para separar capítulos manualmente.
+
+A importação não permite substituir o texto oficial do Project Gutenberg quando ele já está disponível e processado para o livro.
+
+#### Atualizar progresso — `PATCH /api/reader/{userBookId}/progress`
+
+Content-Type: `application/json`
+
+```json
+{
+  "currentChapter": 2,
+  "currentParagraph": 14
+}
+```
+
+- `currentChapter`: obrigatório, mínimo 1.
+- `currentParagraph`: obrigatório, mínimo 0.
+
+Resposta de sucesso: `204 No Content`.
+
+## 6. Estados de leitura
+
+O enum `ReadingStatus` contém:
+
+| Estado | Significado |
+|---|---|
+| `WANT_TO_READ` | Deseja ler |
+| `READING` | Em leitura |
+| `COMPLETED` | Concluído |
+| `PAUSED` | Pausado |
+| `NAO_INICIADO` | Estado legado |
+| `EM_ANDAMENTO` | Estado legado |
+| `LIDO` | Estado legado |
+
+Os três últimos valores existem para compatibilidade com registros de versões anteriores.
+
+## 7. Modelo de dados
+
+### User
+
+Armazena a conta do usuário:
+
+- identificador;
+- nome;
+- e-mail único;
+- hash da senha;
+- bytes da foto e tipo MIME.
+
+### Book
+
+Armazena os metadados compartilhados do catálogo:
+
+- identificador externo Gutendex;
+- título, autores e descrição;
+- editora e ISBN;
+- capa e URL do conteúdo;
+- idioma, assuntos e contagem de downloads;
+- formatos disponibilizados.
+
+### UserBook
+
+Representa a relação entre uma conta e um livro:
+
+- usuário e livro;
+- data de aquisição;
+- estado de leitura;
+- capítulo e parágrafo atuais;
+- datas de início e conclusão;
+- página atual e avaliação pessoal.
+
+A restrição única sobre `user_id` e `book_id` impede que o mesmo livro seja adicionado duas vezes à mesma biblioteca.
+
+### BookChapter
+
+Armazena capítulos processados associados a um livro, incluindo número, título e conteúdo.
+
+## 8. Integrações externas
+
+### Gutendex
+
+Utilizada para pesquisar livros, carregar a seleção popular e recuperar metadados. A aplicação consulta `https://gutendex.com`.
+
+### Project Gutenberg
+
+Quando há URL de texto integral disponível, o backend pode baixar o conteúdo para processamento e leitura. O cliente de download aceita apenas hosts pertencentes a `gutenberg.org` via HTTPS, aplica timeout e limita o tamanho do conteúdo.
+
+A disponibilidade dessas operações depende dos serviços externos e da existência de formatos compatíveis no catálogo.
+
+## 9. Segurança
+
+Medidas identificadas no código:
+
+- Senhas armazenadas com BCrypt.
+- Autenticação por sessão HTTP.
+- Troca do identificador de sessão após login.
+- Proteção CSRF do Spring Security, com exceção explícita para login e cadastro.
+- Verificação de propriedade do livro antes de operações de leitura.
+- Validação de nome, e-mail, senha e arquivo de imagem.
+- Restrição de tipo e tamanho para arquivos enviados.
+- Validação de host e protocolo na obtenção de textos externos.
+- Tratamento centralizado de erros sem exposição deliberada de detalhes internos inesperados.
+
+**Pontos para revisão antes de produção:** implementar limitação de tentativas de login (rate limiting), revisar políticas de cookies `Secure`, `HttpOnly` e `SameSite` conforme o ambiente, avaliar cabeçalhos de segurança, configurar CORS somente se necessário e manter credenciais exclusivamente em variáveis de ambiente/segredos do provedor.
+
+## 10. Configuração e execução local
+
+### Pré-requisitos
+
+- JDK 17.
+- Maven (ou Maven Wrapper incluído).
+- Instância PostgreSQL acessível.
+
+### Variáveis de ambiente
+
+A configuração principal espera:
+
+| Variável | Finalidade |
+|---|---|
+| `DB_USERNAME` | Usuário do PostgreSQL |
+| `DB_PASSWORD` | Senha do PostgreSQL |
+
+A URL JDBC está definida no `application.yaml` para o pooler Supabase do projeto. Para outro ambiente, ajuste a URL por configuração externa ou perfil apropriado.
+
+### Executar
+
+Na raiz do projeto:
+
+```bash
+./mvnw clean spring-boot:run
+```
+
+Executar testes:
+
+```bash
+./mvnw test
+```
+
+Empacotar:
+
+```bash
+./mvnw clean package
+```
+
+Após iniciar, abra `http://localhost:8080/swagger-ui.html`.
+
+## 11. Docker
 
 Construir a imagem:
 
-``` bash
+```bash
 docker build -t housebook .
 ```
 
-Executar o contêiner:
+Executar:
 
-``` bash
-docker run --rm \
-  -p 8080:8080 \
+```bash
+docker run --rm -p 8080:8080 \
   -e DB_USERNAME="seu_usuario" \
   -e DB_PASSWORD="sua_senha" \
   housebook
 ```
 
-A aplicação utiliza a porta `8080` por padrão no contêiner, respeitando
-a variável `PORT` quando definida.
+O Dockerfile compila a aplicação em uma etapa Maven e executa o JAR em uma imagem JRE.
 
-## ☁️ Publicação
+## 12. Testes automatizados
 
-O projeto contém um `Dockerfile` compatível com plataformas que aceitam
-deploy por contêiner. Para publicar:
+Os testes existentes cobrem, entre outros pontos:
 
-1.  disponibilize o código em um repositório Git;
-2.  configure o serviço de deploy para construir a imagem pelo
-    `Dockerfile`;
-3.  cadastre `DB_USERNAME` e `DB_PASSWORD` como variáveis secretas no
-    provedor;
-4.  configure a URL do PostgreSQL para o ambiente de produção;
-5.  confirme que a porta e o endereço de escuta estão corretos;
-6.  valide o cadastro, login, logout e acesso a rotas protegidas após a
-    publicação.
+- inicialização do contexto Spring;
+- cadastro válido;
+- rejeição de nome vazio, e-mail inválido e senha curta;
+- prevenção de e-mail duplicado;
+- armazenamento de senha em formato BCrypt;
+- autenticação com senha correta/incorreta;
+- processamento e divisão de textos em capítulos;
+- tratamento de títulos, ilustrações, versos e textos sem capítulos explícitos.
 
-Não inclua credenciais do banco no `Dockerfile`, no `application-test.yaml`
-ou no histórico do Git.
+A cobertura não deve ser interpretada como garantia de que todos os fluxos estejam testados. Recomenda-se ampliar os testes de autorização, sessão, CSRF, upload, endpoints de livros e leitura.
 
-## 🧭 Próximas etapas de desenvolvimento
+## 13. Tratamento de erros
 
-A evolução do HouseBook pode ser organizada em fases independentes,
-mantendo cada módulo com responsabilidade própria.
+O `ApiExceptionHandler` padroniza respostas de erros para `ResponseStatusException` e excesso de tamanho de upload.
 
-### Fase 1 --- Consolidar autenticação
+Formato:
 
--   alinhar o contrato do formulário com o controller;
--   concluir o fluxo de upload opcional de foto;
--   implementar rate limiting;
--   revisar CSRF e configuração de sessão;
--   criar testes de cadastro, login e logout.
-
-### Fase 2 --- Perfil do usuário
-
--   disponibilizar consulta dos dados do usuário autenticado;
--   apresentar nome e foto de perfil;
--   permitir atualização dos dados;
--   permitir substituição ou remoção da foto;
--   garantir que cada conta altere somente os próprios dados.
-
-### Fase 3 --- Catálogo de livros
-
--   criar entidade e repositório de livros;
--   definir cadastro, edição, consulta e remoção;
--   organizar os dados do catálogo sem misturar responsabilidades com
-    autenticação.
-
-### Fase 4 --- Favoritos
-
--   permitir que cada usuário mantenha sua própria lista;
--   validar a propriedade dos registros;
--   impedir duplicidade de favoritos.
-
-### Fase 5 --- Comentários
-
--   associar cada comentário ao usuário e ao livro correspondente;
--   validar conteúdo e autoria;
--   definir regras de edição e exclusão.
-
-### Fase 6 --- Histórico e auditoria
-
--   registrar eventos relevantes da conta;
--   limitar a consulta ao próprio usuário;
--   preservar informações necessárias para rastreabilidade;
--   definir política de retenção de dados.
-
-### Fase 7 --- Qualidade e publicação
-
--   ampliar testes automatizados;
--   revisar logs e tratamento de erros;
--   documentar contratos da API;
--   aplicar migrações de banco versionadas;
--   monitorar disponibilidade e desempenho.
-
-## 🧪 Testes
-
-Os testes automatizados ficam em `src/test`. Execute a suíte com:
-
-``` bash
-./mvnw test
+```json
+{
+  "status": 400,
+  "message": "Descrição do problema."
+}
 ```
 
-A presença de testes no projeto não significa que todos os fluxos
-estejam cobertos. Recomenda-se criar cenários específicos para cadastro
-válido, e-mail duplicado, senha incorreta, sessão, autorização e upload
-de imagens.
+O status e a mensagem variam conforme a operação. Nem todas as exceções da aplicação necessariamente passam pelo mesmo formato.
 
-## 📌 Estado atual do projeto
+## 14. Limitações e evolução
 
-  -----------------------------------------------------------------------
-Área                                Situação identificada no código
-  ----------------------------------- -----------------------------------
-Estrutura Spring Boot               Implementada
+A documentação descreve os endpoints encontrados no código desta versão. Não significa que todos os requisitos de produção estejam concluídos.
 
-Persistência PostgreSQL/JPA         Configurada
+Evoluções recomendadas:
 
-Cadastro de usuário                 Implementado
+1. Adicionar rate limiting e monitoramento de tentativas de autenticação.
+2. Fortalecer configuração de cookies e cabeçalhos HTTP.
+3. Ampliar testes de integração da biblioteca e do leitor.
+4. Adotar migrações versionadas de banco de dados.
+5. Definir política de backup, logs e observabilidade.
+6. Automatizar build, testes e deploy em pipeline CI/CD.
 
-Login com BCrypt                    Implementado
+## 15. Créditos e responsabilidade
 
-Contexto de autenticação em sessão  Implementado
+**HouseBook** — idealizado, desenvolvido e mantido por João.
 
-Logout por invalidação da sessão    Implementado
+O uso de Claude e ChatGPT/GPT ocorreu como suporte de inteligência artificial ao processo de desenvolvimento, incluindo auxílio técnico e revisão. Essas ferramentas não são proprietárias do produto e não substituem a autoria, as decisões, a validação ou a responsabilidade do desenvolvedor.
 
-Interface de login e cadastro       Implementada
+---
 
-Personalização e acessibilidade da  Implementadas no frontend
-interface
-
-Prévia e validação inicial da foto  Implementadas no frontend
-
-Armazenamento binário da foto no    Pendente de alinhamento
-PostgreSQL
-
-Rate limiting                       Pendente
-
-Catálogo, favoritos, comentários e  Etapas futuras
-histórico
-  -----------------------------------------------------------------------
-
-## 🤝 Contribuição
-
-Contribuições são bem-vindas. Para manter a evolução organizada:
-
-1.  crie uma branch específica para a alteração;
-2.  mantenha cada mudança concentrada em uma responsabilidade;
-3.  preserve a separação entre controller, service, model e DTO;
-4.  adicione ou atualize testes;
-5.  descreva no commit o objetivo da alteração;
-6.  abra um pull request com contexto, impacto e evidências de teste.
-
-## 📜 Licença
-
-Defina e adicione um arquivo `LICENSE` ao repositório antes de declarar
-uma licença de distribuição. Até lá, não presuma permissões de
-reutilização do código.
-
-------------------------------------------------------------------------
-
-
-**HouseBook --- cada livro é um mundo. Cada leitor, uma jornada.**
-
-*Construído com organização, segurança e paixão por histórias.*
-</div>
+*HouseBook — cada livro é um mundo. Cada leitor, uma jornada.*
