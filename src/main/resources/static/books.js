@@ -139,6 +139,15 @@
         return parts.length === 2 ? `${parts[1].trim()} ${parts[0].trim()}`.trim() : String(name || '').trim();
     }
 
+    // Texto puro em qualquer codificação (utf-8, us-ascii, iso-8859-1...) ou edição em HTML/EPUB,
+    // a partir da qual o Gutenberg gera o texto padrão. Mantém a mesma regra do backend.
+    function hasReadableText(formats) {
+        const keys = Object.keys(formats || {});
+        return keys.some(key => key.startsWith('text/plain') && !String(formats[key]).toLowerCase().endsWith('.zip'))
+            || keys.includes('text/html')
+            || keys.includes('application/epub+zip');
+    }
+
     // Item cru da Gutendex (resultado de busca) -> formato usado pelos cartões.
     function normalizeCatalogItem(item) {
         const formats = item.formats || {};
@@ -156,7 +165,7 @@
             language: Array.isArray(item.languages) ? item.languages.join(', ') : '',
             subjects: subjects.join(' | '),
             downloadCount: item.download_count || 0,
-            contentAvailable: Boolean(formats['text/plain; charset=utf-8'] || formats['text/plain; charset=us-ascii'] || formats['text/plain']),
+            contentAvailable: hasReadableText(formats),
             formats,
         };
     }

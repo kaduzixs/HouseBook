@@ -6,6 +6,7 @@ import HouseBook.company.dto.ChapterSummaryDTO;
 import HouseBook.company.dto.ReaderStateDTO;
 import HouseBook.company.enums.ReadingStatus;
 import HouseBook.company.model.Book.Book;
+import HouseBook.company.model.Book.BookRepository;
 import HouseBook.company.model.Book.BookChapter;
 import HouseBook.company.model.Book.BookChapterRepository;
 import HouseBook.company.model.User.UserBook;
@@ -13,7 +14,10 @@ import HouseBook.company.model.User.UserBookRepository;
 import HouseBook.company.util.GutenbergCovers;
 import HouseBook.company.util.GutenbergTextProcessor;
 import HouseBook.company.util.GutenbergTextProcessor.Chapter;
+import HouseBook.company.util.GutenbergUrls;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Área de leitura: prepara os capítulos de cada livro (baixando do Project Gutenberg na primeira
@@ -38,10 +43,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReadingService {
 
+    private static final Logger log = LoggerFactory.getLogger(ReadingService.class);
     private static final long MAX_UPLOAD_BYTES = 5L * 1024 * 1024;
     private static final int LOCK_STRIPES = 32;
 
     private final BookChapterRepository chapterRepository;
+    private final BookRepository bookRepository;
     private final UserBookRepository userBookRepository;
     private final GutenbergClient gutenbergClient;
 
@@ -90,8 +97,10 @@ public class ReadingService {
         if (chapterRepository.existsByBookId(bookId)) {
             return;
         }
-        String url = book.getContentUrl();
-        if (url == null || url.isBlank()) {
+        // Além da URL salva, tenta os endereços padrão do Gutenberg: livros salvos antes com content_url
+        // vazio (ou com uma codificação que a busca não reconhecia) passam a abrir sem importar nada.
+        List<String> urls = GutenbergUrls.candidates(book.getContentUrl(), book.getGoogleBookId());
+        if (urls.isEmpty()) {
             return; // sem texto oficial: o leitor oferece a importação de um arquivo TXT
         }
 
@@ -99,11 +108,30 @@ public class ReadingService {
             if (chapterRepository.existsByBookId(bookId)) {
                 return;
             }
-            List<Chapter> chapters = GutenbergTextProcessor.process(gutenbergClient.fetchText(url));
+            Optional<GutenbergClient.Fetched> fetched = gutenbergClient.fetchFirstAvailable(urls);
+            if (fetched.isEmpty()) {
+                return; // o Gutenberg não tem texto para este título (404 em todos os endereços)
+            }
+            List<Chapter> chapters = GutenbergTextProcessor.process(fetched.get().text());
             if (chapters.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O texto baixado está vazio ou ilegível.");
             }
             chapterRepository.saveAll(toEntities(book, chapters));
+            rememberContentUrl(book, fetched.get().url());
+        }
+    }
+
+    /** Guarda o endereço que funcionou: isso marca o livro como "texto oficial" e protege contra sobrescrita por TXT. */
+    private void rememberContentUrl(Book book, String url) {
+        if (book.getContentUrl() != null && !book.getContentUrl().isBlank()) {
+            return;
+        }
+        try {
+            bookRepository.updateContentUrl(book.getId(), url);
+            book.setContentUrl(url);
+        }
+        catch (RuntimeException ex) {
+            log.warn("Não foi possível salvar o endereço do texto do livro {}.", book.getId(), ex);
         }
     }
 
