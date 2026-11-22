@@ -9,13 +9,16 @@ import HouseBook.company.model.User.UserBook;
 import HouseBook.company.model.User.UserBookRepository;
 import HouseBook.company.model.User.UserRepository;
 import HouseBook.company.util.GutenbergCovers;
+import HouseBook.company.util.GutenbergUrls;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -25,8 +28,11 @@ import tools.jackson.databind.JsonNode;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -35,6 +41,9 @@ import java.util.stream.StreamSupport;
 public class BookService {
 
     private static final Logger log = LoggerFactory.getLogger(BookService.class);
+
+    private static final int GUTENDEX_ATTEMPTS = 2;
+    private static final long GUTENDEX_RETRY_PAUSE_MS = 800;
 
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
@@ -49,7 +58,12 @@ public class BookService {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(20));
 
-        return RestClient.builder().baseUrl("https://gutendex.com").requestFactory(requestFactory).build();
+        return RestClient.builder()
+                .baseUrl("https://gutendex.com")
+                .requestFactory(requestFactory)
+                .defaultHeader(HttpHeaders.USER_AGENT, "HouseBook/1.0 (leitor de livros; Project Gutenberg)")
+                .defaultHeader(HttpHeaders.ACCEPT, "application/json")
+                .build();
     }
 
     //  biblioteca
@@ -115,7 +129,7 @@ public class BookService {
 
     public JsonNode getNewBooks() {
         try {
-            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").build()).retrieve().body(JsonNode.class);
+            JsonNode response = withRetry(() -> restClient.get().uri("/books/").retrieve().body(JsonNode.class)); // a Gutendex já ordena por popularidade
 
             if (response == null || !response.path("results").isArray()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
@@ -133,13 +147,61 @@ public class BookService {
     }
 
     // Consulta o catálogo com os nomes de parâmetros definidos pela Gutendex.
+    // Os valores entram como variáveis de template para serem codificados por completo ("&", "+", "#" etc.
+    // numa busca como "Romeo & Juliet" quebravam a URL antes).
     private JsonNode fetchSearch(String query, String language, String topic, String mimeType) {
-        JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParamIfPresent("languages", nonBlank(language)).queryParamIfPresent("topic", nonBlank(topic)).queryParamIfPresent("mime_type", nonBlank(mimeType)).build()).retrieve().body(JsonNode.class);
+        JsonNode response = withRetry(() -> restClient.get().uri(uri -> {
+            Map<String, Object> vars = new HashMap<>();
+            uri.path("/books/").queryParam("search", "{search}");
+            vars.put("search", query.trim());
+            nonBlank(language).ifPresent(value -> {
+                uri.queryParam("languages", "{languages}");
+                vars.put("languages", value.trim());
+            });
+            nonBlank(topic).ifPresent(value -> {
+                uri.queryParam("topic", "{topic}");
+                vars.put("topic", value.trim());
+            });
+            nonBlank(mimeType).ifPresent(value -> {
+                uri.queryParam("mime_type", "{mimeType}");
+                vars.put("mimeType", value.trim());
+            });
+            return uri.build(vars);
+        }).retrieve().body(JsonNode.class));
 
         if (response == null || !response.path("results").isArray()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
         }
         return response;
+    }
+
+    /** A Gutendex oscila (timeouts e 5xx são comuns): uma nova tentativa antes de desistir. */
+    private static <T> T withRetry(Supplier<T> call) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return call.get();
+            }
+            catch (RestClientResponseException ex) {
+                int status = ex.getStatusCode().value();
+                boolean retryable = status == 429 || status >= 500;
+                if (attempt >= GUTENDEX_ATTEMPTS || !retryable) {
+                    throw ex;
+                }
+                log.warn("Gutendex respondeu HTTP {}; tentando de novo ({}/{}).", status, attempt, GUTENDEX_ATTEMPTS);
+            }
+            catch (ResourceAccessException ex) {
+                if (attempt >= GUTENDEX_ATTEMPTS) {
+                    throw ex;
+                }
+                log.warn("Falha de conexão com a Gutendex; tentando de novo ({}/{}).", attempt, GUTENDEX_ATTEMPTS);
+            }
+            try {
+                Thread.sleep(GUTENDEX_RETRY_PAUSE_MS);
+            }
+            catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private static Optional<String> nonBlank(String value) {
@@ -150,7 +212,7 @@ public class BookService {
 
     private Book saveBookFromGutendex(String id) {
         try {
-            JsonNode item = restClient.get().uri("/books/{id}/", id).retrieve().body(JsonNode.class);
+            JsonNode item = withRetry(() -> restClient.get().uri("/books/{id}/", id).retrieve().body(JsonNode.class));
             if (item == null || item.isEmpty() || item.path("id").isMissingNode()) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Livro não encontrado no catálogo gratuito.");
             }
@@ -168,7 +230,7 @@ public class BookService {
             book.setIsbn("");
             book.setFormatsJson(formats.toString());
             book.setThumbnail(coverUrl(formats, id));
-            book.setContentUrl(plainTextUrl(formats));
+            book.setContentUrl(plainTextUrl(formats, id));
             book.setLanguage(languages.isArray() && languages.size() > 0 ? languages.get(0).asText() : "");
             book.setSubjects(joinTexts(subjects, " | "));
             book.setDownloadCount(item.path("download_count").asLong(0));
@@ -189,15 +251,26 @@ public class BookService {
         return GutenbergCovers.orFallback(formats.path("image/jpeg").asText(""), id);
     }
 
-    /** Escolhe o melhor texto puro disponível, nessa ordem de preferência. */
-    private static String plainTextUrl(JsonNode formats) {
+    /**
+     * Escolhe o melhor texto puro disponível. Além de utf-8/us-ascii, aceita qualquer "text/plain; charset=..."
+     * (iso-8859-1 e windows-1252 são comuns em livros em português). Sem nenhum, mas com o livro disponível em
+     * HTML/EPUB, usa o texto padrão que o Gutenberg gera para o título.
+     */
+    private static String plainTextUrl(JsonNode formats, String id) {
         for (String key : List.of("text/plain; charset=utf-8", "text/plain; charset=us-ascii", "text/plain")) {
             String url = formats.path(key).asText("");
-            if (!url.isBlank()) {
+            if (GutenbergUrls.isUsablePlainText(url)) {
                 return url;
             }
         }
-        return "";
+        for (var entry : formats.properties()) {
+            String url = entry.getValue().asText("");
+            if (entry.getKey().startsWith("text/plain") && GutenbergUrls.isUsablePlainText(url)) {
+                return url;
+            }
+        }
+        boolean hasTextEdition = formats.has("text/html") || formats.has("application/epub+zip") || formats.has("application/x-mobipocket-ebook");
+        return hasTextEdition ? GutenbergUrls.canonicalText(id) : "";
     }
 
     /** "Austen, Jane" (formato do Gutenberg) vira "Jane Austen". */
