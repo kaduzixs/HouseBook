@@ -248,7 +248,7 @@ public class BookService {
 
     /** A Gutendex entrega a capa em formats["image/jpeg"]; sem ela, usa o endereço padrão do Gutenberg. */
     private static String coverUrl(JsonNode formats, String id) {
-        return GutenbergCovers.orFallback(formats.path("image/jpeg").asText(""), id);
+        return GutenbergCovers.fromFormats(formats, id);
     }
 
     /**
