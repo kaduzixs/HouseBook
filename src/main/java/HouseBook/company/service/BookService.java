@@ -44,28 +44,20 @@ public class BookService {
     private final RestClient restClient = createGutendexClient();
 
     private static RestClient createGutendexClient() {
-        HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(8))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NORMAL).build();
 
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(20));
 
-        return RestClient.builder()
-                .baseUrl("https://gutendex.com")
-                .requestFactory(requestFactory)
-                .build();
+        return RestClient.builder().baseUrl("https://gutendex.com").requestFactory(requestFactory).build();
     }
 
-    // ---------------------------------------------------------------- biblioteca
+    //  biblioteca
 
     @Transactional(readOnly = true)
     public List<BookResponseDTO> getUserBooks(Long userId) {
         User user = findUser(userId);
-        return userBookRepository.findAllByUserOrderByAcquiredAtDesc(user).stream()
-                .map(BookResponseDTO::from)
-                .toList();
+        return userBookRepository.findAllByUserOrderByAcquiredAtDesc(user).stream().map(BookResponseDTO::from).toList();
     }
 
     @Transactional
@@ -101,7 +93,7 @@ public class BookService {
         userBookRepository.delete(findUserBook(userBookId, findUser(userId)));
     }
 
-    // ------------------------------------------------------------------ catálogo
+    // catálogo
 
     public JsonNode searchBooks(String query, String language, String topic, String mimeType) {
         if (query == null || query.isBlank()) {
@@ -113,22 +105,17 @@ public class BookService {
         }
         catch (RestClientResponseException ex) {
             log.error("Gutendex respondeu HTTP {} ao pesquisar livros.", ex.getStatusCode().value(), ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
         }
         catch (RestClientException ex) {
             log.error("Falha de conexão ao consultar a Gutendex.", ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
         }
     }
 
     public JsonNode getNewBooks() {
         try {
-            JsonNode response = restClient.get()
-                    .uri(uri -> uri.path("/books/").queryParam("sort", "popular").build())
-                    .retrieve()
-                    .body(JsonNode.class);
+            JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("sort", "popular").build()).retrieve().body(JsonNode.class);
 
             if (response == null || !response.path("results").isArray()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
@@ -137,27 +124,17 @@ public class BookService {
         }
         catch (RestClientResponseException ex) {
             log.error("Gutendex respondeu HTTP {} ao carregar a seleção inicial.", ex.getStatusCode().value(), ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex respondeu com HTTP " + ex.getStatusCode().value() + ". Tente novamente mais tarde.", ex);
         }
         catch (RestClientException ex) {
             log.error("Falha de conexão ao carregar livros populares da Gutendex.", ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O servidor não conseguiu se conectar à Gutendex. Verifique os logs do Render.", ex);
         }
     }
 
     // Consulta o catálogo com os nomes de parâmetros definidos pela Gutendex.
     private JsonNode fetchSearch(String query, String language, String topic, String mimeType) {
-        JsonNode response = restClient.get()
-                .uri(uri -> uri.path("/books/")
-                        .queryParam("search", query.trim())
-                        .queryParamIfPresent("languages", nonBlank(language))
-                        .queryParamIfPresent("topic", nonBlank(topic))
-                        .queryParamIfPresent("mime_type", nonBlank(mimeType))
-                        .build())
-                .retrieve()
-                .body(JsonNode.class);
+        JsonNode response = restClient.get().uri(uri -> uri.path("/books/").queryParam("search", query.trim()).queryParamIfPresent("languages", nonBlank(language)).queryParamIfPresent("topic", nonBlank(topic)).queryParamIfPresent("mime_type", nonBlank(mimeType)).build()).retrieve().body(JsonNode.class);
 
         if (response == null || !response.path("results").isArray()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A Gutendex retornou uma resposta inválida.");
@@ -169,7 +146,7 @@ public class BookService {
         return Optional.ofNullable(value).filter(v -> !v.isBlank());
     }
 
-    // --------------------------------------------------- gravação do livro (Gutendex)
+    // - gravação do livro (Gutendex)
 
     private Book saveBookFromGutendex(String id) {
         try {

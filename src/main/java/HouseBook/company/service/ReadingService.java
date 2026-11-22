@@ -56,7 +56,7 @@ public class ReadingService {
         return locks;
     }
 
-    // ------------------------------------------------------------------ abrir o livro
+    // abrir o livro
 
     /**
      * Abre o livro para leitura. Na primeira vez, baixa o texto do Gutenberg e o divide em capítulos.
@@ -81,8 +81,7 @@ public class ReadingService {
 
     public ChapterResponseDTO chapter(Long userBookId, Integer number, Long userId) {
         Long bookId = ownedBook(userBookId, userId).getBook().getId();
-        BookChapter chapter = chapterRepository.findByBookIdAndChapterNumber(bookId, number)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Capítulo não encontrado."));
+        BookChapter chapter = chapterRepository.findByBookIdAndChapterNumber(bookId, number).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Capítulo não encontrado."));
         return new ChapterResponseDTO(chapter.getId(), chapter.getChapterNumber(), chapter.getTitle(), chapter.getContent());
     }
 
@@ -108,7 +107,7 @@ public class ReadingService {
         }
     }
 
-    // ------------------------------------------------------------ importar um TXT
+    // importar um TXT
 
     @Transactional
     public ReaderStateDTO importText(Long userBookId, MultipartFile file, Long userId) {
@@ -183,18 +182,14 @@ public class ReadingService {
     /** UTF-8 quando possível; arquivos antigos em Windows-1252 (comuns em português) como alternativa. */
     private static String decode(byte[] bytes) {
         try {
-            return StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
+            return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
         }
         catch (CharacterCodingException ex) {
             return new String(bytes, Charset.forName("windows-1252"));
         }
     }
 
-    // ------------------------------------------------------------------ progresso
+    // progresso
 
     @Transactional
     public void updateProgress(Long userBookId, ReadingProgressRequest request, Long userId) {
@@ -233,7 +228,7 @@ public class ReadingService {
         userBookRepository.save(userBook);
     }
 
-    // ------------------------------------------------------------------ auxiliares
+    // auxiliares
 
     private void markAsStarted(UserBook userBook) {
         boolean changed = false;

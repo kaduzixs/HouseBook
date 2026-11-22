@@ -45,12 +45,10 @@ class GutenbergTextProcessorTest {
     @Test
     void ignoresTableOfContentsAndLicenseAndSplitsChapters() {
         StringBuilder book = new StringBuilder(header());
-        book.append("CONTENTS\n\nCHAPTER I.    Down the Rabbit-Hole\nCHAPTER II.   The Pool of Tears\n")
-                .append("CHAPTER III.  A Caucus-Race\nCHAPTER IV.   The Rabbit\n\n\n");
+        book.append("CONTENTS\n\nCHAPTER I.    Down the Rabbit-Hole\nCHAPTER II.   The Pool of Tears\n").append("CHAPTER III.  A Caucus-Race\nCHAPTER IV.   The Rabbit\n\n\n");
         String[] names = {"Down the Rabbit-Hole", "The Pool of Tears", "A Caucus-Race", "The Rabbit"};
         for (int i = 0; i < 4; i++) {
-            book.append("CHAPTER ").append(ROMANS[i]).append(".\n").append(names[i]).append("\n\n")
-                    .append(paragraph(6)).append("\n\n").append(paragraph(4)).append("\n\n\n");
+            book.append("CHAPTER ").append(ROMANS[i]).append(".\n").append(names[i]).append("\n\n").append(paragraph(6)).append("\n\n").append(paragraph(4)).append("\n\n\n");
         }
         book.append(footer());
 

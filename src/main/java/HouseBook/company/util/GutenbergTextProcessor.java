@@ -30,43 +30,24 @@ public final class GutenbergTextProcessor {
     private static final int VERSE_LINE_LIMIT = 55;
     private static final int TOC_LOOKAHEAD_LINES = 15;
 
-    private static final Pattern START_MARKER =
-            Pattern.compile("\\*{3}\\s*START OF[^\\n]*?PROJECT GUTENBERG[^\\n]*\\n?", Pattern.CASE_INSENSITIVE);
-    private static final Pattern END_MARKER =
-            Pattern.compile("\\*{3}\\s*END OF[^\\n]*?PROJECT GUTENBERG", Pattern.CASE_INSENSITIVE);
+    private static final Pattern START_MARKER = Pattern.compile("\\*{3}\\s*START OF[^\\n]*?PROJECT GUTENBERG[^\\n]*\\n?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern END_MARKER = Pattern.compile("\\*{3}\\s*END OF[^\\n]*?PROJECT GUTENBERG", Pattern.CASE_INSENSITIVE);
 
     // Numeral romano válido e não vazio (evita confundir palavras como "CIVIL" com numerais).
-    private static final String ROMAN =
-            "(?=[MDCLXVI])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})";
+    private static final String ROMAN = "(?=[MDCLXVI])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})";
 
-    private static final String KEYWORDS =
-            "(?iu:chapter|chapitre|cap[ií]tulo|capitolo|kapitel|book|livro|libro|livre|part|parte|partie"
-                    + "|teil|act|ato|acto|acte|stave|canto|section|se[cç][aã]o)";
+    private static final String KEYWORDS = "(?iu:chapter|chapitre|cap[ií]tulo|capitolo|kapitel|book|livro|libro|livre|part|parte|partie" + "|teil|act|ato|acto|acte|stave|canto|section|se[cç][aã]o)";
 
-    private static final String NUMBER_WORDS =
-            "(?iu:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen"
-                    + "|sixteen|seventeen|eighteen|nineteen|twenty(?:-\\w+)?|thirty(?:-\\w+)?|first|second|third"
-                    + "|fourth|fifth|sixth|seventh|eighth|ninth|tenth|um|dois|tr[eê]s|quatro|cinco|seis|sete|oito"
-                    + "|nove|dez|primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quinto|sexto"
-                    + "|s[eé]timo|oitavo|nono|d[eé]cimo|uno|dos|cuatro|siete|ocho|nueve|diez|primero|tercero"
-                    + "|premier|premi[eè]re|deux|trois|quatre)";
+    private static final String NUMBER_WORDS = "(?iu:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen" + "|sixteen|seventeen|eighteen|nineteen|twenty(?:-\\w+)?|thirty(?:-\\w+)?|first|second|third" + "|fourth|fifth|sixth|seventh|eighth|ninth|tenth|um|dois|tr[eê]s|quatro|cinco|seis|sete|oito" + "|nove|dez|primeiro|primeira|segundo|segunda|terceiro|terceira|quarto|quinto|sexto" + "|s[eé]timo|oitavo|nono|d[eé]cimo|uno|dos|cuatro|siete|ocho|nueve|diez|primero|tercero" + "|premier|premi[eè]re|deux|trois|quatre)";
 
     // "CHAPTER I.", "Capítulo 3 — O encontro", "BOOK ONE"...
-    private static final Pattern KEYWORD_HEADING = Pattern.compile(
-            "^(?:" + KEYWORDS + ")\\s+(?:" + ROMAN + "|\\d{1,3}|" + NUMBER_WORDS + ")"
-                    + "(?:\\s*[.:\\-\\u2014\\u2013]\\s*\\S.{0,60}|\\s*\\.?)$");
+    private static final Pattern KEYWORD_HEADING = Pattern.compile("^(?:" + KEYWORDS + ")\\s+(?:" + ROMAN + "|\\d{1,3}|" + NUMBER_WORDS + ")" + "(?:\\s*[.:\\-\\u2014\\u2013]\\s*\\S.{0,60}|\\s*\\.?)$");
 
     // "I. A SCANDAL IN BOHEMIA", "XII.", "7"
-    private static final Pattern NUMERAL_HEADING =
-            Pattern.compile("^(?:" + ROMAN + "|\\d{1,3})(?:\\.\\s*\\S.{0,60}|\\.?)$");
-
+    private static final Pattern NUMERAL_HEADING = Pattern.compile("^(?:" + ROMAN + "|\\d{1,3})(?:\\.\\s*\\S.{0,60}|\\.?)$");
     private static final Pattern ROMAN_WORD = Pattern.compile(ROMAN);
-    private static final Set<String> SMALL_WORDS = Set.of(
-            "a", "an", "the", "of", "in", "on", "at", "to", "and", "or", "for",
-            "de", "da", "do", "das", "dos", "e", "em", "no", "na", "nos", "nas", "o", "os", "as", "um", "uma",
-            "el", "la", "los", "las", "del", "y");
-    private static final Pattern ILLUSTRATION = Pattern.compile(
-            "^\\[(?:illustration|ilustra[cç][aã]o|illustrazione)[^\\]]*]$", Pattern.CASE_INSENSITIVE);
+    private static final Set<String> SMALL_WORDS = Set.of("a", "an", "the", "of", "in", "on", "at", "to", "and", "or", "for", "de", "da", "do", "das", "dos", "e", "em", "no", "na", "nos", "nas", "o", "os", "as", "um", "uma", "el", "la", "los", "las", "del", "y");
+    private static final Pattern ILLUSTRATION = Pattern.compile("^\\[(?:illustration|ilustra[cç][aã]o|illustrazione)[^\\]]*]$", Pattern.CASE_INSENSITIVE);
     private static final Pattern UNDERSCORE_ITALIC = Pattern.compile("(?<![\\w])_([^_\\n]+?)_(?![\\w])");
 
     private record Heading(int line, int bodyStart, String title) {
@@ -101,7 +82,7 @@ public final class GutenbergTextProcessor {
         return String.join("\n\n", paragraphs(normalizeNewlines(body)));
     }
 
-    // ------------------------------------------------------------------ limpeza
+    //  limpeza
 
     private static String stripBoilerplate(String raw) {
         Matcher start = START_MARKER.matcher(raw);
@@ -113,15 +94,10 @@ public final class GutenbergTextProcessor {
     }
 
     private static String normalizeNewlines(String text) {
-        return text.replace("\uFEFF", "")
-                .replace("\r\n", "\n")
-                .replace('\r', '\n')
-                .replace('\t', ' ')
-                .replace('\u00A0', ' ')
-                .strip();
+        return text.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').replace('\t', ' ').replace('\u00A0', ' ').strip();
     }
 
-    // ------------------------------------------------------------ por capítulos
+    //  por capítulos
 
     private static List<Chapter> splitByHeadings(String[] lines, Pattern pattern, int minHeadings) {
         List<Heading> candidates = new ArrayList<>();
@@ -198,7 +174,7 @@ public final class GutenbergTextProcessor {
         return matches >= 2;
     }
 
-    // ---------------------------------------------------------- por tamanho
+    //  por tamanho
 
     private static List<Chapter> splitBySize(String text) {
         List<String> paragraphs = paragraphs(text);
@@ -282,7 +258,7 @@ public final class GutenbergTextProcessor {
         return parts;
     }
 
-    // ---------------------------------------------------------------- parágrafos
+    //  parágrafos
 
     private static List<String> paragraphs(String text) {
         List<String> result = new ArrayList<>();
@@ -307,7 +283,7 @@ public final class GutenbergTextProcessor {
         return result;
     }
 
-    // --------------------------------------------------------------------- títulos
+    //  títulos
 
     private static String formatTitle(String raw) {
         String title = raw.strip().replaceAll("\\s+", " ");
@@ -372,7 +348,7 @@ public final class GutenbergTextProcessor {
         return value.substring(0, cut > max / 2 ? cut : max - 1).strip() + "\u2026";
     }
 
-    // ----------------------------------------------------------------- utilitários
+    // utilitários
 
     private static String join(String[] lines, int from, int to) {
         return String.join("\n", Arrays.copyOfRange(lines, from, Math.max(from, to)));
