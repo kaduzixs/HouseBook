@@ -93,3 +93,49 @@ html[data-contrast="high"] .input-wrap input,html[data-contrast="high"] form > l
     box-shadow: 0 0 0 3px rgba(217, 193, 141, .15);
 }
 
+
+
+/* A identidade visual inteira acompanha a paleta escolhida. */
+:root {
+    --auth-page-top:var(--forest-800);
+    --auth-surface:rgba(20,36,26,.96);
+    --auth-surface-soft:rgba(12,24,17,.78);
+    --auth-input:rgba(4,13,8,.42);
+    --auth-accent-soft:rgba(201,169,106,.14);
+}
+html[data-theme="ember"] {
+    --forest-950:#21170f; --forest-900:#332116; --forest-800:#4a3020; --forest-700:#68442b;
+    --moss:#b58a59; --moss-bright:#e1b77d; --gold:#d2a45f; --gold-light:#f0cf91;
+    --parchment:#f5e7d8; --parchment-dim:#cdb39b; --ink:#332116;
+    --panel:rgba(42,27,17,.97); --line:rgba(210,164,95,.4);
+    --auth-page-top:#68442b; --auth-surface:rgba(51,33,22,.97);
+    --auth-surface-soft:rgba(42,27,17,.9); --auth-input:rgba(20,11,6,.48);
+    --auth-accent-soft:rgba(210,164,95,.17);
+}
+html[data-theme="violet"] {
+    --forest-950:#171321; --forest-900:#211a31; --forest-800:#332844; --forest-700:#4c3a60;
+    --moss:#a18bb8; --moss-bright:#d0bde0; --gold:#c6a5ce; --gold-light:#e8d0ed;
+    --parchment:#f0eafa; --parchment-dim:#c2b4d0; --ink:#211a31;
+    --panel:rgba(29,23,42,.97); --line:rgba(198,165,206,.4);
+    --auth-page-top:#4c3a60; --auth-surface:rgba(33,26,49,.97);
+    --auth-surface-soft:rgba(29,23,42,.9); --auth-input:rgba(10,7,18,.48);
+    --auth-accent-soft:rgba(198,165,206,.17);
+}
+html[data-theme="ocean"] {
+    --forest-950:#0d1b22; --forest-900:#132832; --forest-800:#1d3c46; --forest-700:#2c5960;
+    --moss:#83aaa1; --moss-bright:#b9d6ca; --gold:#b7b17b; --gold-light:#e0d7a0;
+    --parchment:#e8f2f5; --parchment-dim:#b5cbd0; --ink:#132832;
+    --panel:rgba(16,37,43,.97); --line:rgba(131,170,161,.4);
+    --auth-page-top:#2c5960; --auth-surface:rgba(19,40,50,.97);
+    --auth-surface-soft:rgba(16,37,43,.9); --auth-input:rgba(4,12,20,.48);
+    --auth-accent-soft:rgba(131,170,161,.17);
+}
+body { background:radial-gradient(ellipse at 50% 48%,var(--auth-page-top) 0%,var(--forest-900) 43%,var(--forest-950) 100%); transition:background .3s ease,color .3s ease; }
+.forest-scene { background:linear-gradient(180deg,rgba(0,0,0,.12),transparent 40%,rgba(0,0,0,.3)); }
+.access-toggle,.form-switch,.avatar-picker-row { background:var(--auth-surface-soft); }
+.access-panel,.auth-card { background:var(--auth-surface); }
+.input-wrap { background:var(--auth-input); }
+.segmented button,.contrast-button { background:var(--auth-accent-soft); }
+.switch-tab.active { background:var(--auth-accent-soft); }
+.crest,.avatar-picker { background:var(--auth-accent-soft); }
+.submit-button { background:linear-gradient(135deg,var(--gold-light),var(--gold)); color:var(--ink); }

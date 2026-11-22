@@ -2109,3 +2109,62 @@ html[data-contrast=high] {
         padding: 9px 11px;
     }
 }
+
+/* Paleta global: todos os componentes acompanham o tema selecionado. */
+:root {
+    --page-top: #263e2b;
+    --page-bottom: #0b1710;
+    --surface-glass: rgba(9,19,13,.90);
+    --surface-glass-soft: rgba(12,25,16,.76);
+    --surface-input: rgba(0,0,0,.24);
+    --surface-card: #192b20;
+    --surface-card-alt: #22392a;
+    --accent-soft: rgba(168,189,130,.13);
+    --accent-border: rgba(198,167,107,.32);
+}
+html[data-theme=ember] {
+    --page-top:#56351f; --page-bottom:#1b100b;
+    --surface-glass:rgba(36,22,14,.94); --surface-glass-soft:rgba(48,29,18,.88);
+    --surface-input:rgba(12,7,4,.32); --surface-card:#38251a; --surface-card-alt:#4b3020;
+    --accent-soft:rgba(217,166,109,.16); --accent-border:rgba(217,166,109,.38);
+    --gold:#e5bd83; --text:#f5e8d9; --muted:#c8aa91; --border:rgba(217,166,109,.3);
+}
+html[data-theme=violet] {
+    --page-top:#3b3154; --page-bottom:#15111f;
+    --surface-glass:rgba(27,22,41,.95); --surface-glass-soft:rgba(39,31,57,.88);
+    --surface-input:rgba(10,7,18,.34); --surface-card:#29223b; --surface-card-alt:#39304e;
+    --accent-soft:rgba(193,168,228,.16); --accent-border:rgba(193,168,228,.38);
+    --gold:#d5c0ef; --text:#f0eafa; --muted:#b9adc9; --border:rgba(193,168,228,.3);
+}
+html[data-theme=ocean] {
+    --page-top:#294b60; --page-bottom:#0b151f;
+    --surface-glass:rgba(13,27,40,.95); --surface-glass-soft:rgba(22,42,59,.9);
+    --surface-input:rgba(4,12,20,.34); --surface-card:#1a2b3d; --surface-card-alt:#263d53;
+    --accent-soft:rgba(148,191,208,.16); --accent-border:rgba(148,191,208,.38);
+    --gold:#b9d8e5; --text:#e8f2f5; --muted:#a8c0ca; --border:rgba(148,191,208,.3);
+}
+body {
+    background: radial-gradient(ellipse at 52% 0%,var(--page-top) 0%,transparent 48%),linear-gradient(145deg,var(--page-bottom),var(--bg));
+    transition: background .3s ease,color .3s ease;
+}
+.topbar { background:var(--surface-glass); border-bottom-color:var(--accent-border); }
+.global-search,.small-search,.search-main,.search-form,.site-dialog input:not([type=file]),
+.filter-control select,.filter-control input { background-color:var(--surface-input); }
+.tool-button,.icon-button,.profile-trigger,.hero-note,.empty-state { background-color:var(--accent-soft); }
+.nav-link:hover,.nav-link.active,.filter-button:hover,.filter-button.active,
+.book-action,.reader-sidebar li button:hover { background:var(--accent-soft); }
+.stat-card,.book-card,.search-form { background:linear-gradient(145deg,var(--surface-card-alt),var(--surface-card)); }
+.book-cover-wrap { background:radial-gradient(circle at 50% 30%,var(--accent-soft),transparent 68%),linear-gradient(145deg,var(--surface-card-alt),var(--bg)); }
+.toolbar,.access-panel,.profile-menu,.site-dialog { background:var(--surface-glass-soft); }
+.site-dialog::backdrop { background:rgba(0,0,0,.78); }
+.filter-control option { background:var(--surface); color:var(--text); }
+.reader-dialog { background:var(--surface); }
+.reader-tool,.reader-controls button,.reader-controls select,.reader-sidebar { background:var(--surface2); }
+.reader-sidebar { background:var(--bg); }
+html[data-theme] .reader-page[data-theme="night"] { background:#1d2521; }
+html[data-theme=ember] .hero-book-back,html[data-theme=ember] .hero-book-front,
+html[data-theme=ember] .cover-placeholder { background:linear-gradient(145deg,#9a6740,#4b3020); }
+html[data-theme=violet] .hero-book-back,html[data-theme=violet] .hero-book-front,
+html[data-theme=violet] .cover-placeholder { background:linear-gradient(145deg,#75618f,#39304e); }
+html[data-theme=ocean] .hero-book-back,html[data-theme=ocean] .hero-book-front,
+html[data-theme=ocean] .cover-placeholder { background:linear-gradient(145deg,#527f91,#263d53); }

@@ -3,6 +3,11 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    const savedTheme = localStorage.getItem('housebook.site.theme');
+    if (['forest', 'ember', 'violet', 'ocean'].includes(savedTheme)) {
+        document.documentElement.dataset.theme = savedTheme;
+    }
+
     // ==========================================
     // ELEMENTOS
     // ==========================================
@@ -473,6 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const theme = button.dataset.themeChoice;
 
             document.documentElement.dataset.theme = theme;
+            localStorage.setItem('housebook.site.theme', theme);
 
             document.querySelectorAll('[data-theme-choice]').forEach(item => {
                 item.setAttribute(

@@ -1,6 +1,11 @@
 'use strict';
 
 (() => {
+    const savedTheme = localStorage.getItem('housebook.site.theme');
+    if (['forest', 'ember', 'violet', 'ocean'].includes(savedTheme)) {
+        document.documentElement.dataset.theme = savedTheme;
+    }
+
     const API = '/api/books';
     const READER_API = '/api/reader';
     const PROGRESS_DELAY_MS = 1200;
@@ -1100,6 +1105,7 @@
         document.querySelectorAll('[data-theme-choice]').forEach(button => {
             button.addEventListener('click', () => {
                 document.documentElement.dataset.theme = button.dataset.themeChoice;
+                localStorage.setItem('housebook.site.theme', button.dataset.themeChoice);
                 document.querySelectorAll('[data-theme-choice]').forEach(other => {
                     other.setAttribute('aria-pressed', String(other === button));
                 });
