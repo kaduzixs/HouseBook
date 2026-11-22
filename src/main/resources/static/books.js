@@ -153,19 +153,11 @@
             || keys.includes('application/epub+zip');
     }
 
-    // A Gutendex envia os formatos como um objeto JSON: formats["image/jpeg"] contém a URL da capa.
-    function resolveCover(formats, id, savedThumbnail = '') {
-        const imageEntry = Object.entries(formats || {})
-            .find(([mime]) => mime.toLowerCase() === 'image/jpeg');
-        const apiCover = imageEntry && typeof imageEntry[1] === 'string' ? imageEntry[1].trim() : '';
-        const validApiCover = /^https:\/\/(www\.)?gutenberg\.org\//i.test(apiCover);
-        if (validApiCover) return apiCover;
-        if (typeof savedThumbnail === 'string' && /^https:\/\/(www\.)?gutenberg\.org\//i.test(savedThumbnail)) {
-            return savedThumbnail;
-        }
-        return /^\d+$/.test(String(id || ''))
-            ? `https://www.gutenberg.org/cache/epub/${id}/pg${id}.cover.medium.jpg`
-            : '';
+    // As capas são servidas pelo próprio backend para evitar bloqueios de hotlink,
+    // políticas de rede do navegador e falhas de carregamento direto do Gutenberg.
+    function coverProxyUrl(bookId) {
+        const id = String(bookId || '');
+        return /^\\d+$/.test(id) ? `/api/books/cover/${encodeURIComponent(id)}` : '';
     }
 
     // Item cru da Gutendex (resultado de busca) -> formato usado pelos cartões.
@@ -180,7 +172,8 @@
                 : 'Autor desconhecido',
             description: subjects.join(' • ') || 'Obra gratuita do catálogo Project Gutenberg.',
             publisher: 'Project Gutenberg',
-            thumbnail: resolveCover(formats, item.id, item.cover_image_url || item.coverImageUrl || ''),
+            // O backend busca a imagem no endereço image/jpeg da Gutendex e a entrega no mesmo domínio.
+            thumbnail: coverProxyUrl(item.id),
             language: Array.isArray(item.languages) ? item.languages.join(', ') : '',
             subjects: subjects.join(' | '),
             downloadCount: item.download_count || 0,
@@ -202,7 +195,6 @@
     // Livro da biblioteca (BookResponseDTO) -> formato usado pelos cartões.
     function normalizeBook(book) {
         const status = book.readingStatus || 'WANT_TO_READ';
-        const formats = parseFormats(book.formatsJson);
         return {
             userBookId: book.userBookId,
             bookId: book.bookId,
@@ -211,12 +203,12 @@
             authors: book.authors || 'Autor desconhecido',
             description: book.description || 'Descrição não disponível.',
             publisher: book.publisher || '',
-            thumbnail: resolveCover(formats, book.googleBookId, book.thumbnail || ''),
+            thumbnail: coverProxyUrl(book.googleBookId) || book.thumbnail || '',
             language: book.language || '',
             subjects: book.subjects || '',
             downloadCount: book.downloadCount || 0,
             contentAvailable: Boolean(book.contentAvailable),
-            formats,
+            formats: parseFormats(book.formatsJson),
             readingStatus: LEGACY_STATUS[status] || status,
             personalRating: book.personalRating,
             currentChapter: book.currentChapter,
@@ -249,22 +241,14 @@
         if (!book.thumbnail) {
             return `<div class="cover-placeholder"><span>✧</span><strong>${esc(book.title)}</strong></div>`;
         }
-        const fallback = resolveCover({}, book.googleBookId);
-        return `<img class="book-cover" src="${esc(book.thumbnail)}" data-fallback="${esc(fallback)}" `
-            + `alt="Capa de ${esc(book.title)}" data-title="${esc(book.title)}" `
-            + `loading="lazy" decoding="async">`;
+        return `<img class="book-cover" src="${esc(book.thumbnail)}" alt="Capa de ${esc(book.title)}" `
+            + `data-title="${esc(book.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
     }
 
     // Se a imagem não carregar (404, bloqueio de rede...), troca por uma capa estilizada com o título.
     document.addEventListener('error', event => {
         const image = event.target;
-        if (image instanceof HTMLImageElement && (image.classList.contains('book-cover') || image.classList.contains('reader-cover'))) {
-            const fallback = image.dataset.fallback || '';
-            if (fallback && image.src !== fallback && image.dataset.fallbackTried !== 'true') {
-                image.dataset.fallbackTried = 'true';
-                image.src = fallback;
-                return;
-            }
+        if (image instanceof HTMLImageElement && image.classList.contains('book-cover')) {
             image.replaceWith(coverPlaceholder(image.dataset.title || ''));
         }
     }, true);

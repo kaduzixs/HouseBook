@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
+import java.time.Duration;
 
 @RestController
 @Tag(name = "Livros e biblioteca", description = "Pesquisa no catálogo Gutendex e gerenciamento da biblioteca individual.")
@@ -81,6 +84,14 @@ public class BookController {
     public ResponseEntity<Void> removeBook(@PathVariable Long userBookId, Authentication authentication) {
         bookService.removeBook(userBookId, getAuthenticatedUserId(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    // Capa do livro: o backend busca a imagem externa e entrega o JPEG ao navegador.
+    @Operation(summary = "Obter capa de livro", description = "Retorna a capa JPEG do Project Gutenberg pelo identificador numérico.")
+    @GetMapping(value = "/cover/{googleBookId}", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<byte[]> getBookCover(@PathVariable String googleBookId) {
+        byte[] image = bookService.getCoverImage(googleBookId);
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic()).body(image);
     }
 
     // 5. Livros populares do catálogo

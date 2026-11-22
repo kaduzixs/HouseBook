@@ -246,9 +246,38 @@ public class BookService {
         }
     }
 
+    /**
+     * Busca a capa no Project Gutenberg pelo ID numérico do catálogo.
+     * A URL corresponde ao formato image/jpeg informado pela Gutendex.
+     */
+    public byte[] getCoverImage(String id) {
+        if (id == null || !id.matches("\\d+")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador de capa inválido.");
+        }
+
+        String coverUrl = GutenbergCovers.urlFor(id);
+        try {
+            byte[] image = restClient.get()
+                    .uri(coverUrl)
+                    .retrieve()
+                    .body(byte[].class);
+
+            if (image == null || image.length == 0) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não encontrada.");
+            }
+            return image;
+        } catch (RestClientResponseException ex) {
+            log.warn("Gutenberg respondeu HTTP {} ao buscar a capa do livro {}.", ex.getStatusCode().value(), id);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.", ex);
+        } catch (RestClientException ex) {
+            log.warn("Falha ao buscar a capa do livro {} no Gutenberg.", id, ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar a capa neste momento.", ex);
+        }
+    }
+
     /** A Gutendex entrega a capa em formats["image/jpeg"]; sem ela, usa o endereço padrão do Gutenberg. */
     private static String coverUrl(JsonNode formats, String id) {
-        return GutenbergCovers.fromFormats(formats, id);
+        return GutenbergCovers.orFallback(formats.path("image/jpeg").asText(""), id);
     }
 
     /**
