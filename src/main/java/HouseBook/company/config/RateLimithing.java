@@ -54,8 +54,7 @@ public class RateLimithing extends OncePerRequestFilter {
                 response.setHeader("X-RateLimit-Remaining", "0");
                 response.setHeader("X-RateLimit-Reset", String.valueOf((window.resetAt + 999) / 1000));
 
-                response.getWriter().write("{\\"status\\":429," + "\\"message\\":\\"Limite de requisições excedido. Tente novamente mais tarde.\\"," + "\\"retryAfterSeconds\\":" + retryAfterSeconds + "}");
-                return;
+                response.getWriter().write("{\"status\":429," + "\"message\":\"Limite de requisições excedido. Tente novamente mais tarde.\"," + "\"retryAfterSeconds\":" + retryAfterSeconds + "}");                return;
             }
 
             window.requests++;
