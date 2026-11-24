@@ -4,6 +4,7 @@ import HouseBook.company.dto.BookResponseDTO;
 import HouseBook.company.service.BookService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.CacheControl;
@@ -23,6 +24,7 @@ import tools.jackson.databind.JsonNode;
 import java.util.List;
 import java.time.Duration;
 
+@ApiResponse(responseCode = "429", description = "Limite de requisições excedido. Consulte Retry-After para saber quando tentar novamente.")
 @RestController
 @Tag(name = "Livros e biblioteca", description = "Pesquisa no catálogo Gutendex e gerenciamento da biblioteca individual.")
 @SecurityRequirement(name = "sessionCookie")
