@@ -80,7 +80,7 @@ Com a aplicação em execução:
 - **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
 - **OpenAPI YAML:** `http://localhost:8080/v3/api-docs.yaml`
 
-Os caminhos `/swagger-ui/**` e `/v3/api-docs/**` estão liberados para consulta, sem exigir login. As operações que trabalham com a biblioteca e a leitura estão identificadas como protegidas por sessão.
+Os caminhos `/swagger-ui/**` e `/v3/api-docs/**` estão liberados para consulta, sem exigir login. As operações que trabalham com a biblioteca e a leitura estão identificadas como protegidas por sessão. O Swagger também documenta a resposta HTTP `429` gerada pelo Rate Limiting.
 
 ### Autenticação no Swagger
 
@@ -325,11 +325,55 @@ Medidas identificadas no código:
 - Validação de nome, e-mail, senha e arquivo de imagem.
 - Restrição de tipo e tamanho para arquivos enviados.
 - Validação de host e protocolo na obtenção de textos externos.
-- Tratamento centralizado de erros sem exposição deliberada de detalhes internos inesperados.
+- Tratamento centralizado de erros sem exposição deliberada de detalhes internos inesperados.\n- Rate Limiting por IP para reduzir abuso de endpoints de autenticação, cadastro e demais rotas dinâmicas.
 
-**Pontos para revisão antes de produção:** implementar limitação de tentativas de login (rate limiting), revisar políticas de cookies `Secure`, `HttpOnly` e `SameSite` conforme o ambiente, avaliar cabeçalhos de segurança, configurar CORS somente se necessário e manter credenciais exclusivamente em variáveis de ambiente/segredos do provedor.
+**Pontos para revisão antes de produção:** substituir o armazenamento em memória do Rate Limiting por uma solução distribuída caso existam múltiplas instâncias, revisar políticas de cookies `Secure`, `HttpOnly` e `SameSite` conforme o ambiente, avaliar cabeçalhos de segurança, configurar CORS somente se necessário e manter credenciais exclusivamente em variáveis de ambiente/segredos do provedor.
 
-## 10. Configuração e execução local
+## 10. Rate Limiting
+
+O backend aplica limitação de requisições por endereço IP por meio do filtro `RateLimithing`, implementado com `OncePerRequestFilter` e janelas fixas de tempo. O filtro é executado antes do processamento dos controllers e mantém contadores separados para autenticação, cadastro e demais rotas dinâmicas.
+
+| Grupo | Método e rota | Limite por IP | Janela |
+|---|---|---:|---|
+| Login | `POST /user/login` | 5 requisições | 1 minuto |
+| Cadastro | `POST /user/register` | 3 requisições | 1 hora |
+| Demais rotas dinâmicas | Todas as outras rotas não estáticas | 120 requisições | 1 minuto |
+
+Os grupos de login, cadastro e rotas gerais possuem contadores independentes. Portanto, as chamadas de login e cadastro também passam pelo respectivo limite específico, em vez de consumir o contador geral. Recursos estáticos comuns (HTML, CSS, JavaScript, favicon, imagens e assets) não consomem o limite.
+
+### Resposta quando o limite é excedido
+
+Quando o cliente ultrapassa o limite, a API interrompe o processamento e retorna `429 Too Many Requests`, sem executar a operação solicitada.
+
+Exemplo de resposta:
+
+```json
+{
+  "status": 429,
+  "message": "Limite de requisições excedido. Tente novamente mais tarde.",
+  "retryAfterSeconds": 42
+}
+```
+
+Cabeçalhos retornados:
+
+| Cabeçalho | Significado |
+|---|---|
+| `Retry-After` | Segundos que o cliente deve aguardar antes de tentar novamente |
+| `X-RateLimit-Limit` | Quantidade máxima de requisições na janela |
+| `X-RateLimit-Remaining` | Requisições restantes na janela atual |
+| `X-RateLimit-Reset` | Instante Unix, em segundos, em que a janela será reiniciada |
+
+O Swagger identifica a resposta `429` nas operações documentadas. O cliente deve respeitar `Retry-After` e evitar repetir imediatamente uma requisição bloqueada.
+
+### Escopo e observações de implantação
+
+- A identificação do cliente utiliza `HttpServletRequest.getRemoteAddr()`. Em implantação atrás de proxy ou balanceador, configure a infraestrutura para encaminhar a identidade do cliente de forma confiável antes de adaptar essa estratégia. Não confie cegamente em `X-Forwarded-For` enviado pelo próprio cliente.
+- Os contadores são mantidos em memória. Em uma implantação com múltiplas instâncias, cada instância terá seus próprios contadores; para um limite global compartilhado, será necessário utilizar armazenamento distribuído, como Redis.
+- As janelas são fixas e reiniciam após o período configurado. O controle é por IP, não por conta de usuário.
+- Os limites são valores iniciais de proteção e podem ser ajustados conforme o tráfego real e as necessidades do serviço.
+
+## 11. Configuração e execução local
 
 ### Pré-requisitos
 
@@ -370,7 +414,7 @@ Empacotar:
 
 Após iniciar, abra `http://localhost:8080/swagger-ui.html`.
 
-## 11. Docker
+## 12. Docker
 
 Construir a imagem:
 
@@ -389,7 +433,7 @@ docker run --rm -p 8080:8080 \
 
 O Dockerfile compila a aplicação em uma etapa Maven e executa o JAR em uma imagem JRE.
 
-## 12. Testes automatizados
+## 13. Testes automatizados
 
 Os testes existentes cobrem, entre outros pontos:
 
@@ -404,7 +448,7 @@ Os testes existentes cobrem, entre outros pontos:
 
 A cobertura não deve ser interpretada como garantia de que todos os fluxos estejam testados. Recomenda-se ampliar os testes de autorização, sessão, CSRF, upload, endpoints de livros e leitura.
 
-## 13. Tratamento de erros
+## 14. Tratamento de erros
 
 O `ApiExceptionHandler` padroniza respostas de erros para `ResponseStatusException` e excesso de tamanho de upload.
 
@@ -419,20 +463,20 @@ Formato:
 
 O status e a mensagem variam conforme a operação. Nem todas as exceções da aplicação necessariamente passam pelo mesmo formato.
 
-## 14. Limitações e evolução
+## 15. Limitações e evolução
 
 A documentação descreve os endpoints encontrados no código desta versão. Não significa que todos os requisitos de produção estejam concluídos.
 
 Evoluções recomendadas:
 
-1. Adicionar rate limiting e monitoramento de tentativas de autenticação.
+1. Adicionar monitoramento e alertas para tentativas de autenticação e bloqueios por Rate Limiting.
 2. Fortalecer configuração de cookies e cabeçalhos HTTP.
 3. Ampliar testes de integração da biblioteca e do leitor.
 4. Adotar migrações versionadas de banco de dados.
 5. Definir política de backup, logs e observabilidade.
 6. Automatizar build, testes e deploy em pipeline CI/CD.
 
-## 15. Créditos e responsabilidade
+## 16. Créditos e responsabilidade
 
 **HouseBook** — idealizado, desenvolvido e mantido por João.
 
