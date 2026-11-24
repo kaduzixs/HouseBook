@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@ApiResponse(responseCode = "429", description = "Limite de requisições excedido. Consulte Retry-After para saber quando tentar novamente.")
 @RestController
 @Tag(name = "Leitura", description = "Abertura de livros, consulta de capítulos, importação de texto e acompanhamento de progresso.")
 @SecurityRequirement(name = "sessionCookie")

@@ -7,6 +7,7 @@ import HouseBook.company.service.UserService;
 import jakarta.servlet.http.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.*;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Optional;
 
+@ApiResponse(responseCode = "429", description = "Limite de requisições excedido. Consulte Retry-After para saber quando tentar novamente.")
 @RestController
 @Tag(name = "Conta e autenticação", description = "Cadastro, login, sessão, perfil e token CSRF.")
 @RequestMapping("/user")
