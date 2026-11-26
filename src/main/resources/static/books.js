@@ -6,6 +6,12 @@
         document.documentElement.dataset.theme = savedTheme;
     }
 
+    const GENERIC_COLORS = ['pink', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'cyan', 'black', 'white'];
+    const savedColor = localStorage.getItem('housebook.site.color');
+    if (GENERIC_COLORS.includes(savedColor)) {
+        document.documentElement.dataset.color = savedColor;
+    }
+
     const API = '/api/books';
     const READER_API = '/api/reader';
     const PROGRESS_DELAY_MS = 1200;
@@ -1117,6 +1123,33 @@
                     other.setAttribute('aria-pressed', String(other === button));
                 });
             });
+        });
+
+        const colorButtons = document.querySelectorAll('[data-color-choice]');
+        const updateColorSelection = selected => {
+            colorButtons.forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.colorChoice === selected));
+            });
+        };
+
+        if (GENERIC_COLORS.includes(savedColor)) {
+            updateColorSelection(savedColor);
+        }
+
+        colorButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const color = button.dataset.colorChoice;
+                if (!GENERIC_COLORS.includes(color)) return;
+                document.documentElement.dataset.color = color;
+                localStorage.setItem('housebook.site.color', color);
+                updateColorSelection(color);
+            });
+        });
+
+        $('#reset-generic-color').addEventListener('click', () => {
+            delete document.documentElement.dataset.color;
+            localStorage.removeItem('housebook.site.color');
+            updateColorSelection('');
         });
     }
 
