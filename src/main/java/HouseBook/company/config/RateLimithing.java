@@ -22,6 +22,9 @@ public class RateLimithing extends OncePerRequestFilter {
     private static final Limit LOGIN_LIMIT = new Limit(5, MINUTE);
     private static final Limit REGISTER_LIMIT = new Limit(3, HOUR);
     private static final Limit GENERAL_LIMIT = new Limit(120, MINUTE);
+    // Cada cartão de livro pede uma imagem; uma grade de 32 capas não pode gastar o limite das demais rotas.
+    private static final Limit COVER_LIMIT = new Limit(600, MINUTE);
+    private static final String COVER_PATH = "/api/books/cover/";
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
     @Override
@@ -78,6 +81,9 @@ public class RateLimithing extends OncePerRequestFilter {
         if ("POST".equalsIgnoreCase(request.getMethod()) && "/user/register".equals(path)) {
             return REGISTER_LIMIT;
         }
+        if (path.startsWith(COVER_PATH)) {
+            return COVER_LIMIT;
+        }
         return GENERAL_LIMIT;
     }
 
@@ -88,6 +94,9 @@ public class RateLimithing extends OncePerRequestFilter {
         }
         if ("/user/register".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
             return "register";
+        }
+        if (path.startsWith(COVER_PATH)) {
+            return "cover";
         }
         return "general";
     }
