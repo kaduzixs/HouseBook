@@ -73,18 +73,30 @@ public class BookService {
 
     // Cliente HTTP com limites de conexão e leitura para evitar requisições presas no Render.
     private final RestClient restClient = createGutendexClient();
+    private final RestClient openLibraryClient = createOpenLibraryClient();
+    private final RestClient openLibraryCoversClient = createOpenLibraryCoversClient();
 
     private static RestClient createGutendexClient() {
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NORMAL).build();
+        return createHttpClient("https://gutendex.com", "application/json");
+    }
 
+    private static RestClient createOpenLibraryClient() {
+        return createHttpClient("https://openlibrary.org", "application/json");
+    }
+
+    private static RestClient createOpenLibraryCoversClient() {
+        return createHttpClient("https://covers.openlibrary.org", "image/*");
+    }
+
+    private static RestClient createHttpClient(String baseUrl, String accept) {
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).followRedirects(HttpClient.Redirect.NORMAL).build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(20));
-
         return RestClient.builder()
-                .baseUrl("https://gutendex.com")
+                .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
-                .defaultHeader(HttpHeaders.USER_AGENT, "HouseBook/1.0 (leitor de livros; Project Gutenberg)")
-                .defaultHeader(HttpHeaders.ACCEPT, "application/json")
+                .defaultHeader(HttpHeaders.USER_AGENT, "HouseBook/1.0 (open-source book reader)")
+                .defaultHeader(HttpHeaders.ACCEPT, accept)
                 .build();
     }
 
@@ -278,7 +290,7 @@ public class BookService {
      * média e a pequena do Gutenberg. Só aceita o que for imagem de verdade e guarda em cache
      * para não repetir a busca a cada carregamento da biblioteca.
      */
-    public CoverImage getCoverImage(String id) {
+    public CoverImage getCoverImage(String id, String requestedTitle, String requestedAuthor) {
         if (id == null || !id.matches("\\d+")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador de capa inválido.");
         }
@@ -289,13 +301,25 @@ public class BookService {
         }
 
         Long missUntil = coverMisses.get(id);
-        if (missUntil != null && System.currentTimeMillis() < missUntil) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.");
+        if (missUntil != null) {
+            if (System.currentTimeMillis() < missUntil) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.");
+            }
+            coverMisses.remove(id);
         }
 
-        String savedThumbnail = bookRepository.findByGoogleBookId(id).map(Book::getThumbnail).orElse(null);
-        RestClientException lastFailure = null;
+        Book savedBook = bookRepository.findByGoogleBookId(id).orElse(null);
+        String title = firstNonBlank(requestedTitle, savedBook == null ? null : savedBook.getTitle());
+        String author = firstNonBlank(requestedAuthor, savedBook == null ? null : savedBook.getAuthors());
 
+        // Prioriza capas de edições publicadas indexadas no Open Library, não capas geradas pelo site.
+        CoverImage editionCover = findOpenLibraryCover(title, author);
+        if (editionCover != null) {
+            coverCache.put(id, editionCover);
+            return editionCover;
+        }
+
+        String savedThumbnail = savedBook == null ? null : savedBook.getThumbnail();
         for (String coverUrl : GutenbergCovers.candidates(savedThumbnail, id)) {
             try {
                 byte[] image = restClient.get()
@@ -303,36 +327,100 @@ public class BookService {
                         .accept(MediaType.parseMediaType("image/*"))
                         .retrieve()
                         .body(byte[].class);
-
                 String type = GutenbergCovers.contentTypeOf(image);
-                if (type == null) {
-                    log.warn("O endereço {} não devolveu uma imagem válida.", coverUrl);
-                    continue;
+                if (type != null) {
+                    CoverImage cover = new CoverImage(image, type);
+                    coverCache.put(id, cover);
+                    return cover;
                 }
-                CoverImage cover = new CoverImage(image, type);
-                coverCache.put(id, cover);
-                return cover;
-            }
-            catch (RestClientResponseException ex) {
-                int status = ex.getStatusCode().value();
-                log.info("Gutenberg respondeu HTTP {} para a capa {} ({}).", status, id, coverUrl);
-                if (status == 403 || status == 429) {
-                    break; // bloqueio de IP: as outras variações da capa estão no mesmo site
-                }
+                log.warn("O endereço {} não devolveu uma imagem válida.", coverUrl);
             }
             catch (RestClientException ex) {
-                log.warn("Falha ao buscar a capa {} em {}.", id, coverUrl, ex);
-                lastFailure = ex;
+                log.info("Não foi possível obter a capa do Gutenberg {}: {}", id, ex.getMessage());
             }
         }
 
-        if (lastFailure == null) {
-            coverMisses.put(id, System.currentTimeMillis() + COVER_MISS_TTL_MS); // falha de rede passageira não entra aqui
+        coverMisses.put(id, System.currentTimeMillis() + COVER_MISS_TTL_MS);
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Não foi encontrada uma capa original para esta edição.");
+    }
+
+    private CoverImage findOpenLibraryCover(String title, String author) {
+        if (title == null || title.isBlank()) {
+            return null;
         }
-        if (lastFailure != null) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar a capa neste momento.", lastFailure);
+        CoverImage cover = searchOpenLibraryCover(title, author);
+        if (cover == null && author != null && !author.isBlank()) {
+            cover = searchOpenLibraryCover(title, null);
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.");
+        return cover;
+    }
+
+    private CoverImage searchOpenLibraryCover(String title, String author) {
+        try {
+            JsonNode search = openLibraryClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder.path("/search.json")
+                                .queryParam("title", title.trim())
+                                .queryParam("limit", 8)
+                                .queryParam("fields", "cover_i,title,author_name");
+                        if (author != null && !author.isBlank() && !"Autor desconhecido".equalsIgnoreCase(author.trim())) {
+                            builder.queryParam("author", author.trim());
+                        }
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            JsonNode docs = search == null ? null : search.path("docs");
+            if (docs == null || !docs.isArray()) {
+                return null;
+            }
+            for (JsonNode doc : docs) {
+                String candidateTitle = doc.path("title").asText("");
+                if (!titlesMatch(title, candidateTitle)) {
+                    continue;
+                }
+                String coverId = doc.path("cover_i").asText("");
+                if (!coverId.matches("\\d+")) {
+                    continue;
+                }
+                try {
+                    byte[] image = openLibraryCoversClient.get()
+                            .uri("/b/id/" + coverId + "-L.jpg?default=false")
+                            .accept(MediaType.parseMediaType("image/*"))
+                            .retrieve()
+                            .body(byte[].class);
+                    String type = GutenbergCovers.contentTypeOf(image);
+                    if (type != null) {
+                        return new CoverImage(image, type);
+                    }
+                }
+                catch (RestClientException ex) {
+                    log.debug("Open Library cover {} was not available: {}", coverId, ex.getMessage());
+                }
+            }
+        }
+        catch (RestClientException ex) {
+            log.warn("Open Library cover search failed for '{}': {}", title, ex.getMessage());
+        }
+        return null;
+    }
+
+    private static boolean titlesMatch(String requested, String candidate) {
+        String expected = normalizeTitle(requested);
+        String actual = normalizeTitle(candidate);
+        return !expected.isEmpty() && !actual.isEmpty()
+                && (expected.equals(actual) || expected.contains(actual) || actual.contains(expected));
+    }
+
+    private static String normalizeTitle(String value) {
+        return value == null ? "" : value.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]", " ")
+                .replaceAll("\\s+", " ").trim();
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred != null && !preferred.isBlank() ? preferred.trim() : fallback;
     }
 
     /** A Gutendex entrega a capa em formats["image/jpeg"]; sem ela, usa o endereço padrão do Gutenberg. */
