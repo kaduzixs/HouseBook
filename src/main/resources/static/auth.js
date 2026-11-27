@@ -3,6 +3,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const GENERIC_COLORS = ['pink','red','orange','yellow','green','blue','purple','cyan','black','white'];
     const savedTheme = localStorage.getItem('housebook.site.theme');
+    // Mantém a aparência escolhida entre a tela de acesso e a biblioteca.
+    const savedMode = localStorage.getItem('housebook.site.mode');
+    if (savedMode === 'light' || savedMode === 'dark') document.documentElement.dataset.mode = savedMode;
     if (['forest','ember','violet','ocean'].includes(savedTheme)) document.documentElement.dataset.theme = savedTheme;
     const savedColor = localStorage.getItem('housebook.site.color');
     if (GENERIC_COLORS.includes(savedColor)) document.documentElement.dataset.color = savedColor;
@@ -37,6 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAccess.addEventListener('click',()=>{accessPanel.hidden=true;accessToggle.setAttribute('aria-expanded','false');accessToggle.focus();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!accessPanel.hidden){accessPanel.hidden=true;accessToggle.setAttribute('aria-expanded','false');}});
     document.querySelectorAll('[data-font-choice]').forEach(button=>button.addEventListener('click',()=>{const size=button.dataset.fontChoice;document.documentElement.dataset.font=size;document.documentElement.style.setProperty('--font-scale',size==='large'?'1.15':'1');document.querySelectorAll('[data-font-choice]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));}));
+    const appearanceToggle=document.getElementById('appearance-toggle');
+    // O modo claro/escuro é independente da casa selecionada.
+    function syncAppearance(){const light=document.documentElement.dataset.mode==='light';appearanceToggle.setAttribute('aria-pressed',String(light));appearanceToggle.textContent=light?'Ativar modo noturno':'Ativar modo claro';}
+    appearanceToggle.addEventListener('click',()=>{const mode=document.documentElement.dataset.mode==='light'?'dark':'light';document.documentElement.dataset.mode=mode;localStorage.setItem('housebook.site.mode',mode);syncAppearance();});
+    syncAppearance();
     const contrastToggle=document.getElementById('contrast-toggle');contrastToggle.addEventListener('click',()=>{const enabled=document.documentElement.dataset.contrast!=='high';document.documentElement.dataset.contrast=enabled?'high':'normal';contrastToggle.setAttribute('aria-pressed',String(enabled));contrastToggle.textContent=enabled?'Desativar alto contraste':'Ativar alto contraste';});
     document.querySelectorAll('[data-theme-choice]').forEach(button=>button.addEventListener('click',()=>{const theme=button.dataset.themeChoice;document.documentElement.dataset.theme=theme;localStorage.setItem('housebook.site.theme',theme);document.querySelectorAll('[data-theme-choice]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));}));
     const colorButtons=[...document.querySelectorAll('[data-color-choice]')];
@@ -44,5 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(GENERIC_COLORS.includes(savedColor))updateColorSelection(savedColor);
     colorButtons.forEach(button=>button.addEventListener('click',()=>{const color=button.dataset.colorChoice;if(!GENERIC_COLORS.includes(color))return;document.documentElement.dataset.color=color;localStorage.setItem('housebook.site.color',color);updateColorSelection(color);}));
     document.getElementById('reset-generic-color').addEventListener('click',()=>{delete document.documentElement.dataset.color;localStorage.removeItem('housebook.site.color');updateColorSelection('');});
+    document.querySelectorAll('[data-theme-choice]').forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.themeChoice===(savedTheme||'forest'))));
     switchAuth('login');
 });
