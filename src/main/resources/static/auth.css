@@ -92,3 +92,259 @@ html[data-contrast=high] body{background:#000;color:#fff}html[data-contrast=high
     .topbar .brand-mark { width: 28px; height: 28px; }
     .topbar .access-toggle { padding: 8px; font-size: .72rem; }
 }
+
+/* ==========================================================
+   HOUSEBOOK AUTH — estética de biblioteca mágica / fantasia
+   Inspirada no visual da página Book: carvão, floresta,
+   dourado envelhecido, livros encantados e detalhes de pergaminho.
+   ========================================================== */
+:root {
+  --wizard-night: #17191e;
+  --wizard-panel: rgba(27, 29, 35, .96);
+  --wizard-panel-soft: rgba(35, 37, 44, .92);
+  --wizard-gold: #c6a568;
+  --wizard-gold-bright: #e1c58c;
+  --wizard-paper: #d8dbe2;
+  --wizard-muted: #aeb2bc;
+}
+html, body { min-height: 100%; }
+body {
+  color: var(--parchment);
+  background:
+    radial-gradient(ellipse at 52% 10%, rgba(91, 96, 110, .28), transparent 42%),
+    radial-gradient(ellipse at 50% 70%, rgba(36, 54, 43, .42), transparent 58%),
+    linear-gradient(180deg, #202228 0%, #15171b 56%, #0d100e 100%);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.forest-scene {
+  background: linear-gradient(180deg, rgba(9,10,13,.18), transparent 34%, rgba(0,0,0,.46));
+}
+.moon {
+  background: radial-gradient(circle at 38% 35%, #f0e6c5, #b7aa80 72%);
+  opacity: .56;
+  box-shadow: 0 0 32px rgba(220,205,157,.2), 0 0 100px rgba(220,205,157,.12);
+}
+.mist { background: rgba(157, 165, 181, .09); }
+.tree { opacity: .62; filter: drop-shadow(0 0 18px rgba(0,0,0,.45)); }
+.pixel-book {
+  border-color: #b68d4d;
+  background: linear-gradient(135deg, #496044, #243c2c);
+  box-shadow: inset 5px 0 #d2ae6c, inset -4px 0 #17251b, 4px 5px 0 rgba(0,0,0,.35), 0 0 18px rgba(197,164,99,.12);
+}
+.pixel-book:before { background: #dfc48d; box-shadow: 4px 0 #927345; }
+.pixel-book:after { color: #f0d99e; }
+.topbar {
+  width: 100%;
+  min-height: 86px;
+  margin: 0;
+  padding: 18px clamp(24px, 5vw, 86px);
+  border-bottom: 1px solid rgba(207, 211, 220, .16);
+  background: rgba(27, 29, 34, .97);
+  box-shadow: 0 8px 28px rgba(0,0,0,.2);
+  backdrop-filter: blur(14px);
+}
+.brand {
+  color: #d7d9df;
+  font-size: 1.55rem;
+  letter-spacing: .015em;
+  text-transform: none;
+  font-weight: 700;
+}
+.brand > span:last-child > span { color: #d7d9df; }
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-color: var(--wizard-gold);
+  color: var(--wizard-gold-bright);
+  box-shadow: 0 0 0 3px rgba(198,165,104,.08), 2px 3px 0 rgba(0,0,0,.28);
+}
+.topbar-actions { gap: 22px; }
+.realm-label {
+  color: #c4c7cf;
+  letter-spacing: .09em;
+  font-size: .76rem;
+}
+.realm-dot { background: #d5c18e; box-shadow: 0 0 10px #d5c18e; }
+.access-toggle {
+  border: 1px solid rgba(207,211,220,.22);
+  border-radius: 7px;
+  padding: 11px 17px;
+  color: #d8dbe2;
+  background: #292c33;
+  font-family: Georgia, serif;
+  letter-spacing: .01em;
+  transition: .2s ease;
+}
+.access-toggle:hover { border-color: var(--wizard-gold); color: var(--wizard-gold-bright); background: #33363e; }
+.page-content {
+  width: min(1320px, calc(100% - 80px));
+  min-height: calc(100vh - 150px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(420px, .95fr);
+  gap: clamp(44px, 7vw, 110px);
+  padding: 54px 0 66px;
+}
+.intro { max-width: 650px; }
+.crest {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 34px;
+  border-color: rgba(198,165,104,.8);
+  color: var(--wizard-gold-bright);
+  background: linear-gradient(145deg, rgba(198,165,104,.14), rgba(33,48,37,.42));
+  box-shadow: 0 0 34px rgba(198,165,104,.09), inset 0 0 18px rgba(198,165,104,.07);
+}
+.crest i { border-color: rgba(198,165,104,.38); }
+.eyebrow { color: #c9b17d; letter-spacing: .2em; }
+.intro h1 {
+  max-width: 660px;
+  color: #e0e1e5;
+  font-size: clamp(3.1rem, 5.5vw, 5.5rem);
+  line-height: .99;
+  letter-spacing: -.045em;
+  text-shadow: 0 5px 28px rgba(0,0,0,.3);
+}
+.intro h1 em, .form-heading h2 em { color: #c7cbd4; }
+.intro-copy {
+  max-width: 600px;
+  color: #b7bbc4;
+  font-family: Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.85;
+}
+.lore-note {
+  max-width: 610px;
+  border: 1px solid rgba(205, 209, 219, .12);
+  border-left: 2px solid var(--wizard-gold);
+  background: linear-gradient(100deg, rgba(44,47,55,.82), rgba(31,33,39,.6));
+  box-shadow: 0 12px 35px rgba(0,0,0,.12);
+}
+.lore-note p { color: #d3d4da; }
+.lore-icon { color: var(--wizard-gold-bright); }
+.forest-signature { color: #aeb2bb; }
+.forest-signature span { background: linear-gradient(90deg, transparent, var(--wizard-gold), transparent); }
+.auth-card {
+  position: relative;
+  max-width: 560px;
+  width: 100%;
+  padding: clamp(30px, 3.4vw, 48px);
+  border: 1px solid rgba(201, 169, 106, .42);
+  border-radius: 3px;
+  color: #d9dbe1;
+  background: linear-gradient(145deg, rgba(31,33,39,.98), rgba(23,25,30,.98));
+  box-shadow: 0 24px 70px rgba(0,0,0,.48), inset 0 0 0 5px rgba(198,165,104,.035), 0 0 36px rgba(198,165,104,.06);
+}
+.auth-card:before, .auth-card:after {
+  content: '✧';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--wizard-gold);
+  font-size: 1rem;
+  opacity: .9;
+}
+.auth-card:before { top: 12px; }
+.auth-card:after { bottom: 10px; }
+.card-ornament { color: rgba(205,177,125,.78); letter-spacing: .15em; }
+.form-switch {
+  border: 1px solid rgba(205,209,219,.22);
+  border-radius: 2px;
+  background: #191b20;
+}
+.switch-tab {
+  color: #b8bbc4;
+  border-radius: 0;
+  font-family: Georgia, serif;
+}
+.switch-tab.active {
+  color: #f0e4c8;
+  background: linear-gradient(180deg, rgba(147,119,72,.28), rgba(147,119,72,.1));
+  box-shadow: inset 0 -2px var(--wizard-gold-bright);
+}
+.form-heading h2 { color: #e1e2e6; }
+.form-heading p { color: #b4b8c1; }
+form > label { color: #e0d6c3; }
+.label-hint { color: #aaaeb8; }
+.input-wrap {
+  border: 1px solid rgba(205,209,219,.23);
+  border-radius: 2px;
+  background: #111317;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.2);
+}
+.input-wrap:focus-within { border-color: var(--wizard-gold); box-shadow: 0 0 0 3px rgba(198,165,104,.1); }
+.input-wrap input { color: #e1e2e6; font-family: Arial, sans-serif; }
+.input-wrap input::placeholder { color: #858a95; }
+.field-icon, .password-toggle, .photo-link, .switch-hint button { color: var(--wizard-gold-bright); }
+.submit-button {
+  border: 1px solid #d3b77e;
+  border-radius: 2px;
+  color: #202126;
+  background: linear-gradient(135deg, #d7c18e, #b7955d);
+  box-shadow: 0 4px 0 #75603e, 0 12px 24px rgba(0,0,0,.2);
+  font-family: Georgia, serif;
+  letter-spacing: .02em;
+  transition: transform .18s, filter .18s, box-shadow .18s;
+}
+.submit-button:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 6px 0 #75603e, 0 16px 28px rgba(0,0,0,.25); }
+.submit-button:active { transform: translateY(1px); box-shadow: 0 2px 0 #75603e; }
+.switch-hint { color: #aeb2bb; }
+.switch-hint button { text-decoration: underline; text-underline-offset: 3px; }
+.avatar-picker-row { border: 1px dashed rgba(198,165,104,.36); background: rgba(198,165,104,.045); }
+.avatar-picker { border-color: var(--wizard-gold); background: #24272d; color: var(--wizard-gold-bright); }
+.avatar-copy strong { color: #e0e1e5; }
+.avatar-copy span { color: #aeb2bb; }
+.page-footer { color: #9297a1; border-top: 1px solid rgba(205,209,219,.1); }
+.page-footer i { color: var(--wizard-gold); }
+.access-panel {
+  border: 1px solid rgba(201,169,106,.45);
+  border-radius: 3px;
+  background: rgba(27,29,35,.98);
+  color: #d8dbe2;
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+}
+.access-heading h2 { color: #e0e1e5; }
+.control-label { color: #b8bbc4; }
+.segmented button, .contrast-button { border-radius: 2px; }
+
+/* As cores escolhidas pelo usuário continuam controlando a interface inteira. */
+html[data-color] .auth-card,
+html[data-color] .access-panel,
+html[data-color] .topbar { background: var(--surface-glass, var(--surface)); color: var(--text); border-color: var(--border); }
+html[data-color] .intro h1, html[data-color] .form-heading h2 { color: var(--text); }
+html[data-color] .intro-copy, html[data-color] .form-heading p, html[data-color] .switch-hint { color: var(--muted); }
+html[data-color] .lore-note { background: var(--surface-glass, var(--surface)); border-color: var(--border); border-left-color: var(--primary); }
+html[data-color] .lore-note p, html[data-color] .brand, html[data-color] .realm-label { color: var(--text); }
+html[data-color] .brand > span:last-child > span { color: var(--primary); }
+html[data-color] .eyebrow, html[data-color] .intro h1 em, html[data-color] .form-heading h2 em,
+html[data-color] .field-icon, html[data-color] .password-toggle, html[data-color] .switch-hint button,
+html[data-color] .photo-link, html[data-color] .page-footer i { color: var(--primary); }
+html[data-color] .submit-button { color: var(--bg); background: linear-gradient(135deg,var(--primary),var(--primary)); border-color: var(--primary); box-shadow: 0 4px 0 var(--border); }
+html[data-color] .input-wrap { background: var(--surface-input); border-color: var(--border); }
+html[data-color] .input-wrap input, html[data-color] form > label { color: var(--text); }
+html[data-color] .switch-tab { color: var(--muted); }
+html[data-color] .switch-tab.active { color: var(--primary); background: var(--accent-soft); box-shadow: inset 0 -2px var(--primary); }
+html[data-color=white] .auth-card, html[data-color=white] .access-panel, html[data-color=white] .topbar { background: #fff; color: #202631; }
+html[data-color=white] .auth-card:before, html[data-color=white] .auth-card:after { color: #59677c; }
+html[data-color=white] .input-wrap input, html[data-color=white] form > label, html[data-color=white] .form-heading h2 { color: #202631; }
+
+@media (max-width: 850px) {
+  .topbar { padding: 16px 24px; }
+  .page-content { width: min(680px, calc(100% - 40px)); grid-template-columns: 1fr; gap: 26px; padding-top: 38px; }
+  .intro { max-width: 650px; }
+  .crest { margin-left: auto; margin-right: auto; }
+  .intro h1 { max-width: 620px; }
+  .auth-card { max-width: 560px; }
+}
+@media (max-width: 560px) {
+  .topbar { width: 100%; min-height: 70px; padding: 14px 18px; }
+  .brand { font-size: 1.18rem; }
+  .topbar-actions { gap: 10px; }
+  .realm-label { display: none; }
+  .access-toggle { padding: 9px 11px; font-size: .74rem; }
+  .page-content { width: calc(100% - 30px); padding: 32px 0 42px; }
+  .intro { text-align: center; }
+  .intro h1 { font-size: clamp(2.65rem, 11vw, 3.5rem); }
+  .intro-copy { margin-left: auto; margin-right: auto; font-size: .92rem; }
+  .lore-note { margin-left: auto; margin-right: auto; text-align: left; }
+  .auth-card { padding: 34px 20px; }
+  .page-footer { padding: 20px 10px; }
+}
