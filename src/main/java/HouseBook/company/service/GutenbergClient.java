@@ -82,6 +82,12 @@ public class GutenbergClient {
                     log.info("Texto não encontrado em {} (HTTP {}).", uri, status);
                     continue;
                 }
+                if (status == 403 || status == 429) {
+                    // O Gutenberg bloqueia por IP o acesso automatizado (principalmente de servidores hospedados).
+                    // Todos os endereços ficam no mesmo site: insistir só prolonga o bloqueio.
+                    log.error("BLOQUEIO: o Project Gutenberg respondeu HTTP {} para {}. O IP deste servidor provavelmente foi bloqueado por acesso automatizado.", status, uri);
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "O Project Gutenberg bloqueou o acesso do servidor ao texto deste livro. Importe um arquivo TXT enquanto isso.", ex);
+                }
                 log.error("Project Gutenberg respondeu HTTP {} para {}.", status, uri, ex);
                 lastError = new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível baixar o texto do livro. Tente novamente em instantes.", ex);
             }

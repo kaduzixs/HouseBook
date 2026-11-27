@@ -61,6 +61,16 @@ public class BookService {
         }
     });
 
+    // Capas que o Gutenberg não entregou (404, bloqueio...): não tenta de novo por 10 minutos.
+    // Sem isso, cada carregamento da biblioteca repetiria dezenas de requisições e agravaria um bloqueio de IP.
+    private static final long COVER_MISS_TTL_MS = 10 * 60 * 1000L;
+    private final Map<String, Long> coverMisses = Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
+            return size() > 1000;
+        }
+    });
+
     // Cliente HTTP com limites de conexão e leitura para evitar requisições presas no Render.
     private final RestClient restClient = createGutendexClient();
 
@@ -278,6 +288,11 @@ public class BookService {
             return cached;
         }
 
+        Long missUntil = coverMisses.get(id);
+        if (missUntil != null && System.currentTimeMillis() < missUntil) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.");
+        }
+
         String savedThumbnail = bookRepository.findByGoogleBookId(id).map(Book::getThumbnail).orElse(null);
         RestClientException lastFailure = null;
 
@@ -299,7 +314,11 @@ public class BookService {
                 return cover;
             }
             catch (RestClientResponseException ex) {
-                log.info("Gutenberg respondeu HTTP {} para a capa {} ({}).", ex.getStatusCode().value(), id, coverUrl);
+                int status = ex.getStatusCode().value();
+                log.info("Gutenberg respondeu HTTP {} para a capa {} ({}).", status, id, coverUrl);
+                if (status == 403 || status == 429) {
+                    break; // bloqueio de IP: as outras variações da capa estão no mesmo site
+                }
             }
             catch (RestClientException ex) {
                 log.warn("Falha ao buscar a capa {} em {}.", id, coverUrl, ex);
@@ -307,6 +326,9 @@ public class BookService {
             }
         }
 
+        if (lastFailure == null) {
+            coverMisses.put(id, System.currentTimeMillis() + COVER_MISS_TTL_MS); // falha de rede passageira não entra aqui
+        }
         if (lastFailure != null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar a capa neste momento.", lastFailure);
         }
