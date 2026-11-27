@@ -146,4 +146,16 @@ class GutenbergTextProcessorTest {
         assertTrue(GutenbergTextProcessor.process("  \n ").isEmpty());
         assertFalse(GutenbergTextProcessor.process("Um texto curtinho.").isEmpty());
     }
+
+    @Test
+    void nulCharactersNeverReachTheChapters() {
+        StringBuilder book = new StringBuilder(header());
+        for (int i = 0; i < 3; i++) {
+            book.append("CHAPTER ").append(ROMANS[i]).append(".\n\n").append(paragraph(6)).append("\u0000\n\n\n");
+        }
+        List<Chapter> chapters = GutenbergTextProcessor.process(book.append(footer()).toString());
+
+        assertFalse(chapters.isEmpty());
+        assertTrue(chapters.stream().noneMatch(c -> c.content().indexOf('\u0000') >= 0 || c.title().indexOf('\u0000') >= 0));
+    }
 }
