@@ -163,7 +163,7 @@
     // políticas de rede do navegador e falhas de carregamento direto do Gutenberg.
     function coverProxyUrl(bookId) {
         const id = String(bookId || '');
-        return /^\\d+$/.test(id) ? `/api/books/cover/${encodeURIComponent(id)}` : '';
+        return /^\d+$/.test(id) ? `/api/books/cover/${encodeURIComponent(id)}` : '';
     }
 
     // Item cru da Gutendex (resultado de busca) -> formato usado pelos cartões.
@@ -251,12 +251,24 @@
             + `data-title="${esc(book.title)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
     }
 
-    // Se a imagem não carregar (404, bloqueio de rede...), troca por uma capa estilizada com o título.
+    // Se a imagem não carregar, tenta mais uma vez (falha transitória de rede) antes de
+    // trocar por uma capa estilizada com o título.
     document.addEventListener('error', event => {
         const image = event.target;
-        if (image instanceof HTMLImageElement && image.classList.contains('book-cover')) {
-            image.replaceWith(coverPlaceholder(image.dataset.title || ''));
+        if (!(image instanceof HTMLImageElement) || !image.classList.contains('book-cover')) {
+            return;
         }
+        if (!image.dataset.retried && image.getAttribute('src')) {
+            image.dataset.retried = '1';
+            const base = image.getAttribute('src').split('?')[0];
+            setTimeout(() => {
+                if (image.isConnected) {
+                    image.src = `${base}?retry=${Date.now()}`;
+                }
+            }, 1200);
+            return;
+        }
+        image.replaceWith(coverPlaceholder(image.dataset.title || ''));
     }, true);
 
     // ----------------------------------------------------------------- cartões
@@ -611,6 +623,9 @@
         cover.hidden = !book?.thumbnail;
         cover.src = book?.thumbnail || '';
         cover.alt = book ? `Capa de ${book.title}` : '';
+        cover.onerror = () => {
+            cover.hidden = true;
+        };
     }
 
     async function openReader(userBookId) {
