@@ -1838,10 +1838,10 @@ html[data-contrast=high] {
 
 
 /* ==========================================================================
-   Acabamento: leitor, cartÃµes, detalhes e avisos
+   Acabamento: leitor, cartÃƒÂµes, detalhes e avisos
    ========================================================================== */
 
-/* --- Aviso flutuante (sempre visÃ­vel, mesmo com a pÃ¡gina rolada) --- */
+/* --- Aviso flutuante (sempre visÃƒÂ­vel, mesmo com a pÃƒÂ¡gina rolada) --- */
 .page-feedback {
     position: fixed;
     left: 50%;
@@ -1866,7 +1866,7 @@ html[data-contrast=high] {
     transform: translate(-50%,0);
 }
 
-/* --- BotÃµes dos cartÃµes --- */
+/* --- BotÃƒÂµes dos cartÃƒÂµes --- */
 .book-action.primary {
     border-color: var(--primary);
     color: #172319;
@@ -1965,7 +1965,7 @@ html[data-contrast=high] {
     transition: width .25s ease;
 }
 
-/* --- Leitor: sumÃ¡rio --- */
+/* --- Leitor: sumÃƒÂ¡rio --- */
 .reader-cover {
     display: block;
     width: 104px;
@@ -2008,7 +2008,7 @@ html[data-contrast=high] {
     font-weight: 700;
 }
 
-/* --- Leitor: pÃ¡gina --- */
+/* --- Leitor: pÃƒÂ¡gina --- */
 .reader-column {
     display: flex;
     flex: 1;
@@ -2173,7 +2173,7 @@ html[data-theme=violet] .cover-placeholder { background:linear-gradient(145deg,#
 html[data-theme=ocean] .hero-book-back,html[data-theme=ocean] .hero-book-front,
 html[data-theme=ocean] .cover-placeholder { background:linear-gradient(145deg,#527f91,#263d53); }
 
-/* Seletor independente de cores genÃ©ricas */
+/* Seletor independente de cores genÃƒÂ©ricas */
 .generic-color-options {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -2210,8 +2210,8 @@ html[data-theme=ocean] .cover-placeholder { background:linear-gradient(145deg,#5
 
 
 /*
- * Paleta completa de cores genÃ©ricas.
- * Cada opÃ§Ã£o altera fundo, cartÃµes, menus, campos, bordas, textos e destaques
+ * Paleta completa de cores genÃƒÂ©ricas.
+ * Cada opÃƒÂ§ÃƒÂ£o altera fundo, cartÃƒÂµes, menus, campos, bordas, textos e destaques
  * do site inteiro, sem depender do tema decorativo selecionado.
  */
 html[data-color] {
@@ -2398,7 +2398,7 @@ html[data-color=white] .site-dialog::backdrop,
 html[data-color=white] .reader-dialog::backdrop { background:rgba(24,30,40,.42); }
 html[data-color=white] .primary-button { color:#fff; }
 
-/* Menus e painÃ©is acompanham integralmente as opÃ§Ãµes preto e branco. */
+/* Menus e painÃƒÂ©is acompanham integralmente as opÃƒÂ§ÃƒÂµes preto e branco. */
 html[data-color=black] .topbar,
 html[data-color=black] .toolbar,
 html[data-color=black] .access-panel,
@@ -2433,3 +2433,27 @@ html[data-color=white] .access-panel select,
 html[data-color=white] .access-panel textarea {
     color: #202631; background: #f1f3f6; border-color: rgba(76,89,108,.23);
 }
+
+/* HOUSEBOOK â€” paletas das quatro casas; preserva os nomes de tema legados. */
+html[data-theme=forest]{--bg:#101b17;--surface:#172820;--surface2:#203b30;--surface3:#315747;--primary:#a9c3b3;--primary-dark:#527d68;--gold:#c4d2c9;--text:#eee9dc;--muted:#b9c6bc;--border:rgba(177,203,190,.28)}
+/* GrifinÃ³ria: vermelho profundo e dourado */
+html[data-theme=ember]{--bg:#1d1012;--surface:#301519;--surface2:#4b2026;--surface3:#702d32;--primary:#e0b36e;--primary-dark:#a34b3f;--gold:#e3bd72;--text:#f4e8d5;--muted:#d3bca7;--border:rgba(214,173,99,.32)}
+/* Corvinal: azul meia-noite e bronze */
+html[data-theme=violet]{--bg:#101722;--surface:#172536;--surface2:#203951;--surface3:#315675;--primary:#dfbd8b;--primary-dark:#42698d;--gold:#bd905d;--text:#e9edf1;--muted:#b9c5d1;--border:rgba(185,139,86,.32)}
+/* Lufa-Lufa: amarelo antigo e carvÃ£o */
+html[data-theme=ocean]{--bg:#1b1910;--surface:#302b18;--surface2:#494020;--surface3:#685a2d;--primary:#ead88d;--primary-dark:#8c762d;--gold:#d8c27a;--text:#f2edda;--muted:#d0c7a7;--border:rgba(212,193,123,.32)}
+html[data-mode=light]{color-scheme:light;--bg:#eee5d4;--surface:#fffaf0;--surface2:#f2e8d5;--surface3:#e5d7bd;--text:#29251f;--muted:#655c50;--border:rgba(112,83,45,.24);--shadow:0 20px 55px rgba(62,46,23,.13)}
+html[data-mode=light] body{color:var(--text);background:radial-gradient(ellipse at 52% 0%,#fff9ec 0%,transparent 48%),linear-gradient(145deg,#e4d8c2,var(--bg))}
+html[data-mode=light] .topbar,html[data-mode=light] .access-panel,html[data-mode=light] .profile-menu,html[data-mode=light] .site-dialog,html[data-mode=light] .toolbar,html[data-mode=light] .reader-toolbar,html[data-mode=light] .reader-sidebar{color:#29251f;background:rgba(255,250,240,.97);border-color:var(--border)}
+html[data-mode=light] .hero-copy,html[data-mode=light] .hero-copy h1,html[data-mode=light] .section-heading,html[data-mode=light] .nav-link,html[data-mode=light] .profile-trigger,html[data-mode=light] .book-card,html[data-mode=light] .stat-card{color:#29251f}
+html[data-mode=light] .hero-copy>p:not(.eyebrow),html[data-mode=light] .hero-note,html[data-mode=light] .section-heading p,html[data-mode=light] .profile-trigger-copy small{color:#655c50}
+html[data-mode=light] .global-search,html[data-mode=light] .small-search,html[data-mode=light] .search-main,html[data-mode=light] input,html[data-mode=light] select,html[data-mode=light] textarea{color:#29251f;background:#fffdf8;border-color:var(--border)}
+html[data-mode=light] .book-card,html[data-mode=light] .stat-card,html[data-mode=light] .search-form{background:linear-gradient(145deg,#fffaf0,#f0e5d0);border-color:var(--border);box-shadow:0 14px 32px rgba(62,46,23,.1)}
+html[data-mode=light] .reader-dialog{color:#29251f;background:#eee5d4}html[data-mode=light] .reader-page{color:#29251f;background:#fffaf0}html[data-mode=light] .forest-scene{opacity:.16}
+.theme-options{gap:15px}.theme-swatch{width:38px;height:38px;border:2px solid rgba(255,255,255,.55);box-shadow:inset 0 0 0 2px rgba(0,0,0,.14)}.swatch-forest{background:linear-gradient(135deg,#1c6248 0 50%,#b8c9c2 50%)}.swatch-ember{background:linear-gradient(135deg,#7d202b 0 50%,#d9b35f 50%)}.swatch-violet{background:linear-gradient(135deg,#183b68 0 50%,#b98b56 50%)}.swatch-ocean{background:linear-gradient(135deg,#e2c64f 0 50%,#28251e 50%)}
+.hero-section{position:relative;isolation:isolate;border:1px solid var(--border);border-radius:8px;background:linear-gradient(115deg,rgba(16,15,17,.84),rgba(35,31,26,.48));box-shadow:0 24px 65px rgba(0,0,0,.2)}
+html[data-mode=light] .hero-section{background:linear-gradient(115deg,rgba(255,250,240,.94),rgba(238,226,203,.78))}
+.book-card{border-radius:7px;transition:transform .22s,box-shadow .22s,border-color .22s}.book-card:hover{transform:translateY(-5px);box-shadow:0 20px 40px rgba(0,0,0,.25)}
+@media(prefers-reduced-motion:reduce){.firefly,.floating-book{animation:none!important}}
+/* Castelo de Hogwarts em silhueta no horizonte da biblioteca. */
+.forest-scene:before{content:"";position:absolute;left:0;right:0;bottom:0;height:34%;opacity:.34;background:linear-gradient(0deg,#080b10 0 42%,transparent 42%);clip-path:polygon(0 58%,8% 58%,8% 31%,11% 18%,14% 31%,14% 58%,21% 58%,21% 8%,24% 0,27% 8%,27% 58%,34% 58%,34% 34%,38% 19%,42% 34%,42% 58%,47% 58%,47% 14%,50% 0,53% 14%,53% 58%,60% 58%,60% 27%,64% 12%,68% 27%,68% 58%,74% 58%,74% 7%,77% 0,80% 7%,80% 58%,87% 58%,87% 30%,91% 16%,95% 30%,95% 58%,100% 58%,100% 100%,0 100%)}
