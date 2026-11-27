@@ -88,12 +88,12 @@ public class BookController {
         return ResponseEntity.noContent().build();
     }
 
-    // Capa do livro: o backend busca a imagem externa e entrega o JPEG ao navegador.
-    @Operation(summary = "Obter capa de livro", description = "Retorna a capa JPEG do Project Gutenberg pelo identificador numérico.")
-    @GetMapping(value = "/cover/{googleBookId}", produces = MediaType.IMAGE_JPEG_VALUE)
+    // Capa do livro: o backend busca a imagem externa e a entrega no mesmo domínio.
+    @Operation(summary = "Obter capa de livro", description = "Retorna a capa original do Project Gutenberg pelo identificador numérico.")
+    @GetMapping("/cover/{googleBookId}")
     public ResponseEntity<byte[]> getBookCover(@PathVariable String googleBookId) {
-        byte[] image = bookService.getCoverImage(googleBookId);
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic()).body(image);
+        BookService.CoverImage cover = bookService.getCoverImage(googleBookId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(cover.contentType())).cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic()).body(cover.data());
     }
 
     // 5. Livros populares do catálogo
