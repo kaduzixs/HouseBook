@@ -25,3 +25,70 @@ html[data-color=white]{color-scheme:light;--bg:#e9ebef;--surface:#fff;--surface2
 html[data-color] body{color:var(--text);background:radial-gradient(ellipse at 52% 0%,var(--page-top) 0%,transparent 48%),linear-gradient(145deg,var(--page-bottom),var(--bg))}html[data-color] .topbar,html[data-color] .access-panel,html[data-color] .auth-card,html[data-color] .form-switch,html[data-color] .avatar-picker-row{color:var(--text);background:var(--surface-glass,var(--surface));border-color:var(--border)}html[data-color] .input-wrap{background:var(--surface-input);border-color:var(--border)}html[data-color] .input-wrap input,html[data-color] form>label,html[data-color] .avatar-copy strong{color:var(--text)}html[data-color] .submit-button{color:var(--bg);background:linear-gradient(135deg,var(--primary),var(--primary-dark,var(--primary)));border-color:var(--primary)}html[data-color] .switch-tab.active,html[data-color] .segmented button[aria-pressed=true],html[data-color] .contrast-button:hover{color:var(--primary);background:var(--accent-soft)}html[data-color] .eyebrow,html[data-color] .intro h1 em,html[data-color] .form-heading h2 em,html[data-color] .field-icon,html[data-color] .password-toggle,html[data-color] .switch-hint button,html[data-color] .photo-link{color:var(--primary)}html[data-color=white] .topbar,html[data-color=white] .access-panel,html[data-color=white] .auth-card,html[data-color=white] .form-switch,html[data-color=white] .avatar-picker-row{color:#202631;background:#fff;border-color:rgba(76,89,108,.23)}html[data-color=white] .input-wrap{background:#f1f3f6}html[data-color=white] .input-wrap input,html[data-color=white] form>label,html[data-color=white] .avatar-copy strong,html[data-color=white] .switch-tab{color:#202631}html[data-color=white] .intro-copy,html[data-color=white] .form-heading p,html[data-color=white] .switch-hint,html[data-color=white] .control-label,html[data-color=white] .realm-label{color:#657083}html[data-color=white] .lore-note p{color:#4c5665}html[data-color=white] .submit-button{color:#fff;background:linear-gradient(135deg,#59677c,#354052)}html[data-color=white] .tree{opacity:.12}html[data-color=white] .forest-scene{opacity:.3}
 html[data-contrast=high] body{background:#000;color:#fff}html[data-contrast=high] .auth-card,html[data-contrast=high] .access-panel{border:2px solid #fff;background:#090909;color:#fff}html[data-contrast=high] .intro-copy,html[data-contrast=high] .form-heading p,html[data-contrast=high] .switch-hint,html[data-contrast=high] .realm-label{color:#fff}html[data-contrast=high] .input-wrap{border:2px solid #fff;background:#000}html[data-contrast=high] .input-wrap input,html[data-contrast=high] form>label{color:#fff}
 @media(max-width:850px){.page-content{grid-template-columns:1fr;max-width:540px;gap:24px;padding-top:40px}.intro{max-width:540px;text-align:center}.crest{margin:0 auto 24px}.intro h1{margin-left:auto;margin-right:auto;font-size:clamp(2.3rem,8vw,3.5rem)}.intro-copy,.lore-note{margin-left:auto;margin-right:auto}.forest-signature{justify-content:center;margin-top:24px}.auth-card{max-width:490px;margin:0 auto}.tree{width:30vw}}@media(max-width:560px){.topbar{width:calc(100% - 32px);padding:17px 0}.realm-label{display:none}.access-toggle{padding:9px 10px}.page-content{width:calc(100% - 30px);padding:34px 0 45px}.intro{padding:10px 0}.intro h1{font-size:2.5rem}.intro-copy{font-size:.9rem}.lore-note{text-align:left}.auth-card{padding:23px 19px}.form-heading h2{font-size:1.75rem}.moon{width:70px;height:70px;right:9%;top:13%}.pixel-book{opacity:.55}.book-one{left:2%}.book-two{right:2%}.page-footer{gap:9px;font-size:.5rem;letter-spacing:.14em}.access-panel{right:16px;top:72px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Restauração da navbar original da página Auth.
+   Mantém o cabeçalho em uma única linha e impede que a paleta global
+   altere dimensões, alinhamento ou espaçamento dos elementos. */
+.topbar {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    width: min(1180px, calc(100% - 56px));
+    min-height: 84px;
+    margin: 0 auto;
+    padding: 26px 0;
+    border-bottom: 1px solid var(--line);
+}
+.topbar .brand {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    white-space: nowrap;
+}
+.topbar-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 24px;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.topbar .realm-label {
+    display: inline-flex;
+    flex: 0 1 auto;
+    align-items: center;
+    margin: 0;
+    white-space: nowrap;
+}
+.topbar .access-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 0;
+    white-space: nowrap;
+}
+@media (max-width: 560px) {
+    .topbar {
+        width: calc(100% - 32px);
+        min-height: 0;
+        padding: 17px 0;
+    }
+    .topbar-actions { gap: 10px; }
+    .topbar .realm-label { display: none; }
+    .topbar .access-toggle { padding: 9px 10px; }
+}
+@media (max-width: 360px) {
+    .topbar .brand { gap: 7px; font-size: 1.05rem; }
+    .topbar .brand-mark { width: 28px; height: 28px; }
+    .topbar .access-toggle { padding: 8px; font-size: .72rem; }
+}
