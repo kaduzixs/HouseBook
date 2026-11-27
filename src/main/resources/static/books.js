@@ -161,9 +161,14 @@
 
     // As capas são servidas pelo próprio backend para evitar bloqueios de hotlink,
     // políticas de rede do navegador e falhas de carregamento direto do Gutenberg.
-    function coverProxyUrl(bookId) {
+    function coverProxyUrl(bookId, title = '', author = '') {
         const id = String(bookId || '');
-        return /^\d+$/.test(id) ? `/api/books/cover/${encodeURIComponent(id)}` : '';
+        if (!/^\d+$/.test(id)) return '';
+        const params = new URLSearchParams();
+        if (title) params.set('title', title);
+        if (author && author !== 'Autor desconhecido') params.set('author', author);
+        const query = params.toString();
+        return `/api/books/cover/${encodeURIComponent(id)}${query ? `?${query}` : ''}`;
     }
 
     // Item cru da Gutendex (resultado de busca) -> formato usado pelos cartões.
@@ -179,7 +184,7 @@
             description: subjects.join(' • ') || 'Obra gratuita do catálogo Project Gutenberg.',
             publisher: 'Project Gutenberg',
             // O backend busca a imagem no endereço image/jpeg da Gutendex e a entrega no mesmo domínio.
-            thumbnail: coverProxyUrl(item.id),
+            thumbnail: coverProxyUrl(item.id, item.title || '', Array.isArray(item.authors) ? item.authors.map(author => displayName(author.name)).join(', ') : ''),
             language: Array.isArray(item.languages) ? item.languages.join(', ') : '',
             subjects: subjects.join(' | '),
             downloadCount: item.download_count || 0,
@@ -209,7 +214,7 @@
             authors: book.authors || 'Autor desconhecido',
             description: book.description || 'Descrição não disponível.',
             publisher: book.publisher || '',
-            thumbnail: coverProxyUrl(book.googleBookId) || book.thumbnail || '',
+            thumbnail: coverProxyUrl(book.googleBookId, book.title || '', book.authors || '') || book.thumbnail || '',
             language: book.language || '',
             subjects: book.subjects || '',
             downloadCount: book.downloadCount || 0,
