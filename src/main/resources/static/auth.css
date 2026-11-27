@@ -348,3 +348,26 @@ html[data-color=white] .input-wrap input, html[data-color=white] form > label, h
   .auth-card { padding: 34px 20px; }
   .page-footer { padding: 20px 10px; }
 }
+
+
+/* HOUSEBOOK — identidade visual inspirada nas quatro casas de Hogwarts.
+   As classes antigas são mantidas para não quebrar as preferências já salvas. */
+:root{--hogwarts-night:#111018;--hogwarts-panel:rgba(25,23,30,.96);--hogwarts-gold:#c6a56a;--hogwarts-paper:#eee5d2}
+html[data-theme=forest]{--forest-950:#101b17;--forest-900:#172820;--forest-800:#203b30;--forest-700:#315747;--moss:#8eaa9a;--moss-bright:#b8d2c3;--gold:#aebfc0;--gold-light:#d9e4df;--line:rgba(177,203,190,.34);--auth-page-top:#254637}
+/* Grifinória */
+html[data-theme=ember]{--forest-950:#1d1012;--forest-900:#301519;--forest-800:#4b2026;--forest-700:#702d32;--moss:#c58b65;--moss-bright:#e0b27e;--gold:#d6ad63;--gold-light:#f1d99d;--parchment:#f4e8d5;--parchment-dim:#d3bca7;--ink:#2b1717;--panel:rgba(43,20,22,.97);--line:rgba(214,173,99,.4);--auth-page-top:#702d32;--auth-surface:rgba(43,20,22,.97);--auth-surface-soft:rgba(30,14,16,.92);--auth-input:rgba(12,5,7,.5);--auth-accent-soft:rgba(214,173,99,.17)}
+/* Corvinal */
+html[data-theme=violet]{--forest-950:#101722;--forest-900:#172536;--forest-800:#203951;--forest-700:#315675;--moss:#a9b9c9;--moss-bright:#d1dce8;--gold:#b98b56;--gold-light:#dfbd8b;--parchment:#e9edf1;--parchment-dim:#b9c5d1;--ink:#172536;--panel:rgba(20,32,48,.97);--line:rgba(185,139,86,.4);--auth-page-top:#315675;--auth-surface:rgba(23,37,54,.97);--auth-surface-soft:rgba(14,24,37,.92);--auth-input:rgba(5,12,21,.5);--auth-accent-soft:rgba(185,139,86,.16)}
+/* Lufa-Lufa */
+html[data-theme=ocean]{--forest-950:#1b1910;--forest-900:#302b18;--forest-800:#494020;--forest-700:#685a2d;--moss:#c7b66d;--moss-bright:#e9d88e;--gold:#d4c17b;--gold-light:#f1e3aa;--parchment:#f2edda;--parchment-dim:#d0c7a7;--ink:#302b18;--panel:rgba(43,38,21,.97);--line:rgba(212,193,123,.4);--auth-page-top:#685a2d;--auth-surface:rgba(43,38,21,.97);--auth-surface-soft:rgba(29,26,15,.92);--auth-input:rgba(12,10,5,.48);--auth-accent-soft:rgba(212,193,123,.17)}
+html[data-mode=light]{color-scheme:light;--forest-950:#e9e1d2;--forest-900:#f1eadc;--forest-800:#e5d8bf;--forest-700:#c9b58e;--parchment:#29251f;--parchment-dim:#62594d;--ink:#29251f;--panel:rgba(255,251,241,.97);--line:rgba(112,83,45,.28);--auth-page-top:#f4ead4;--auth-surface:rgba(255,251,241,.96);--auth-surface-soft:rgba(239,229,208,.88);--auth-input:rgba(255,255,255,.78);--auth-accent-soft:rgba(147,111,55,.12)}
+html[data-mode=light] body{color:var(--parchment);background:radial-gradient(ellipse at 50% 48%,#fff8e9 0%,#eee2ca 55%,#dfd2b8 100%)}
+html[data-mode=light] .auth-card,html[data-mode=light] .access-panel{color:#29251f;background:rgba(255,251,241,.97);box-shadow:0 22px 60px rgba(68,48,20,.18)}
+html[data-mode=light] .form-heading h2,html[data-mode=light] form>label,html[data-mode=light] .avatar-copy strong,html[data-mode=light] .brand,html[data-mode=light] .intro h1{color:#29251f}
+html[data-mode=light] .input-wrap{background:#fffdf7}html[data-mode=light] .input-wrap input{color:#29251f}html[data-mode=light] .intro-copy,html[data-mode=light] .form-heading p,html[data-mode=light] .switch-hint,html[data-mode=light] .control-label{color:#62594d}
+html[data-mode=light] .forest-scene{opacity:.22}html[data-mode=light] .tree{opacity:.1}
+.theme-options{gap:15px}.theme-swatch{width:38px;height:38px;border:2px solid rgba(255,255,255,.55);box-shadow:inset 0 0 0 2px rgba(0,0,0,.14)}.swatch-forest{background:linear-gradient(135deg,#1c6248 0 50%,#b8c9c2 50%)}.swatch-ember{background:linear-gradient(135deg,#7d202b 0 50%,#d9b35f 50%)}.swatch-violet{background:linear-gradient(135deg,#183b68 0 50%,#b98b56 50%)}.swatch-ocean{background:linear-gradient(135deg,#e2c64f 0 50%,#28251e 50%)}
+.auth-card{border-radius:4px;box-shadow:0 28px 85px rgba(0,0,0,.48),inset 0 0 0 5px var(--auth-accent-soft)}.auth-card:before,.auth-card:after{width:30px;height:30px}.crest{border-radius:3px;box-shadow:0 0 0 5px rgba(198,165,106,.08),0 0 30px var(--auth-accent-soft)}
+@media(prefers-reduced-motion:reduce){.firefly,.pixel-book{animation:none!important}}
+/* Silhueta discreta do castelo ao fundo, sem imagens externas obrigatórias. */
+.forest-scene:before{content:"";position:absolute;left:0;right:0;bottom:-1px;height:38%;opacity:.42;background:linear-gradient(90deg,transparent 0 7%,#080b10 7% 12%,transparent 12% 17%,#080b10 17% 22%,transparent 22% 29%,#080b10 29% 35%,transparent 35% 42%,#080b10 42% 48%,transparent 48% 55%,#080b10 55% 62%,transparent 62% 70%,#080b10 70% 76%,transparent 76% 83%,#080b10 83% 89%,transparent 89%),linear-gradient(0deg,#080b10 0 45%,transparent 45%);clip-path:polygon(0 54%,7% 54%,7% 30%,10% 18%,13% 30%,13% 54%,19% 54%,19% 9%,22% 0,25% 9%,25% 54%,32% 54%,32% 34%,35% 22%,38% 34%,38% 54%,43% 54%,43% 15%,46% 4%,49% 15%,49% 54%,56% 54%,56% 28%,60% 15%,64% 28%,64% 54%,70% 54%,70% 5%,73% 0,76% 5%,76% 54%,82% 54%,82% 30%,86% 18%,90% 30%,90% 54%,100% 54%,100% 100%,0 100%)}
