@@ -311,6 +311,10 @@ Utilizada para pesquisar livros, carregar a seleção popular e recuperar metada
 
 Quando há URL de texto integral disponível, o backend pode baixar o conteúdo para processamento e leitura. O cliente de download aceita apenas hosts pertencentes a `gutenberg.org` via HTTPS, aplica timeout e limita o tamanho do conteúdo.
 
+**Capas.** `GET /api/books/cover/{id}` entrega a capa original do livro no mesmo domínio da aplicação. O backend tenta, em ordem, a URL `image/jpeg` informada pela Gutendex, a capa média e a pequena do Gutenberg; só aceita o que for imagem de verdade (JPEG, PNG, GIF ou WebP) e mantém as últimas 300 em cache de memória. Esse endpoint tem um limite próprio de 600 requisições por minuto por IP, para que uma grade de capas não consuma o limite das demais rotas.
+
+**Codificação do texto.** Tanto o download do Gutenberg quanto a importação de TXT passam por `TextDecoding`, que reconhece UTF-8 (com ou sem BOM), UTF-16 (com ou sem BOM, o "Unicode" do Bloco de Notas) e Windows-1252, e remove caracteres NUL, que o PostgreSQL não aceita em colunas `TEXT`. O tempo total de download de um livro é limitado a cerca de 55 segundos.
+
 A disponibilidade dessas operações depende dos serviços externos e da existência de formatos compatíveis no catálogo.
 
 ## 9. Segurança
