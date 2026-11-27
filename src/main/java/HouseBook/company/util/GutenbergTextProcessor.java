@@ -94,7 +94,7 @@ public final class GutenbergTextProcessor {
     }
 
     private static String normalizeNewlines(String text) {
-        return text.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').replace('\t', ' ').replace('\u00A0', ' ').strip();
+        return text.replace("\u0000", "").replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').replace('\t', ' ').replace('\u00A0', ' ').strip();
     }
 
     //  por capítulos
