@@ -89,10 +89,13 @@ public class BookController {
     }
 
     // Capa do livro: o backend busca a imagem externa e a entrega no mesmo domínio.
-    @Operation(summary = "Obter capa de livro", description = "Retorna a capa original do Project Gutenberg pelo identificador numérico.")
+    @Operation(summary = "Obter capa de livro", description = "Busca uma capa de edição publicada no Open Library e usa a capa do Project Gutenberg como alternativa.")
     @GetMapping("/cover/{googleBookId}")
-    public ResponseEntity<byte[]> getBookCover(@PathVariable String googleBookId) {
-        BookService.CoverImage cover = bookService.getCoverImage(googleBookId);
+    public ResponseEntity<byte[]> getBookCover(
+            @PathVariable String googleBookId,
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "author", required = false) String author) {
+        BookService.CoverImage cover = bookService.getCoverImage(googleBookId, title, author);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(cover.contentType())).cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic()).body(cover.data());
     }
 
