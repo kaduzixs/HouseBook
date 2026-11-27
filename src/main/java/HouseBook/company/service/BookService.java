@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,9 @@ import tools.jackson.databind.JsonNode;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,6 +51,15 @@ public class BookService {
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
     private final UserBookRepository userBookRepository;
+
+    // Capas já baixadas (as últimas 300): a biblioteca e a busca pedem as mesmas imagens o tempo todo.
+    private static final int COVER_CACHE_SIZE = 300;
+    private final Map<String, CoverImage> coverCache = Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, CoverImage> eldest) {
+            return size() > COVER_CACHE_SIZE;
+        }
+    });
 
     // Cliente HTTP com limites de conexão e leitura para evitar requisições presas no Render.
     private final RestClient restClient = createGutendexClient();
@@ -246,33 +258,59 @@ public class BookService {
         }
     }
 
+    /** Imagem da capa já validada e o tipo detectado pelos bytes. */
+    public record CoverImage(byte[] data, String contentType) {
+    }
+
     /**
-     * Busca a capa no Project Gutenberg pelo ID numérico do catálogo.
-     * A URL corresponde ao formato image/jpeg informado pela Gutendex.
+     * Busca a capa original no Project Gutenberg pelo ID numérico do catálogo.
+     * Tenta, nesta ordem: o endereço image/jpeg que a Gutendex informou para o livro, a capa
+     * média e a pequena do Gutenberg. Só aceita o que for imagem de verdade e guarda em cache
+     * para não repetir a busca a cada carregamento da biblioteca.
      */
-    public byte[] getCoverImage(String id) {
+    public CoverImage getCoverImage(String id) {
         if (id == null || !id.matches("\\d+")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador de capa inválido.");
         }
 
-        String coverUrl = GutenbergCovers.urlFor(id);
-        try {
-            byte[] image = restClient.get()
-                    .uri(coverUrl)
-                    .retrieve()
-                    .body(byte[].class);
-
-            if (image == null || image.length == 0) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não encontrada.");
-            }
-            return image;
-        } catch (RestClientResponseException ex) {
-            log.warn("Gutenberg respondeu HTTP {} ao buscar a capa do livro {}.", ex.getStatusCode().value(), id);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.", ex);
-        } catch (RestClientException ex) {
-            log.warn("Falha ao buscar a capa do livro {} no Gutenberg.", id, ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar a capa neste momento.", ex);
+        CoverImage cached = coverCache.get(id);
+        if (cached != null) {
+            return cached;
         }
+
+        String savedThumbnail = bookRepository.findByGoogleBookId(id).map(Book::getThumbnail).orElse(null);
+        RestClientException lastFailure = null;
+
+        for (String coverUrl : GutenbergCovers.candidates(savedThumbnail, id)) {
+            try {
+                byte[] image = restClient.get()
+                        .uri(coverUrl)
+                        .accept(MediaType.parseMediaType("image/*"))
+                        .retrieve()
+                        .body(byte[].class);
+
+                String type = GutenbergCovers.contentTypeOf(image);
+                if (type == null) {
+                    log.warn("O endereço {} não devolveu uma imagem válida.", coverUrl);
+                    continue;
+                }
+                CoverImage cover = new CoverImage(image, type);
+                coverCache.put(id, cover);
+                return cover;
+            }
+            catch (RestClientResponseException ex) {
+                log.info("Gutenberg respondeu HTTP {} para a capa {} ({}).", ex.getStatusCode().value(), id, coverUrl);
+            }
+            catch (RestClientException ex) {
+                log.warn("Falha ao buscar a capa {} em {}.", id, coverUrl, ex);
+                lastFailure = ex;
+            }
+        }
+
+        if (lastFailure != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Não foi possível carregar a capa neste momento.", lastFailure);
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Capa não disponível para este livro.");
     }
 
     /** A Gutendex entrega a capa em formats["image/jpeg"]; sem ela, usa o endereço padrão do Gutenberg. */

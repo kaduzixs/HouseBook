@@ -15,6 +15,7 @@ import HouseBook.company.util.GutenbergCovers;
 import HouseBook.company.util.GutenbergTextProcessor;
 import HouseBook.company.util.GutenbergTextProcessor.Chapter;
 import HouseBook.company.util.GutenbergUrls;
+import HouseBook.company.util.TextDecoding;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +26,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -161,7 +157,7 @@ public class ReadingService {
 
         final String text;
         try {
-            text = decode(file.getBytes());
+            text = TextDecoding.decode(file.getBytes());
         }
         catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não foi possível ler o arquivo.", ex);
@@ -205,16 +201,6 @@ public class ReadingService {
             chapters.add(new Chapter(bodies.size() == 1 ? "Texto completo" : "Parte " + (i + 1), bodies.get(i)));
         }
         return chapters;
-    }
-
-    /** UTF-8 quando possível; arquivos antigos em Windows-1252 (comuns em português) como alternativa. */
-    private static String decode(byte[] bytes) {
-        try {
-            return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
-        }
-        catch (CharacterCodingException ex) {
-            return new String(bytes, Charset.forName("windows-1252"));
-        }
     }
 
     // progresso
